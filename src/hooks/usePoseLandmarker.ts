@@ -12,6 +12,7 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) =
   const [isLandmarkerReady, setIsLandmarkerReady] = useState(false);
   const requestRef = useRef<number>();
   const lastVideoTimeRef = useRef<number>(-1);
+  const [error, setError] = useState<string | null>(null);
 
   // PoseLandmarker の初期化
   useEffect(() => {
@@ -25,30 +26,36 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) =
         );
         console.log('✅ WASMファイル読み込み完了');
 
-        // PoseLandmarker の初期化（runtime = mediapipe を指定）
-        // 型定義にruntimesプロパティが含まれていないため、型アサーションを使用
-        const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+        // PoseLandmarker の初期化（最新のAPIに対応）
+        // 型アサーションを使用して型エラーを回避
+        const options = {
           baseOptions: {
-            // モデルは直接 CDN から読み込む
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-            delegate: 'GPU'  // WebGL を使用（高速化）
+            delegate: 'GPU' as 'GPU' // 型を固定して型エラーを回避
           },
-          runningMode: 'VIDEO',
-          numPoses: 1,        // 同時検出する人数
+          runningMode: 'VIDEO' as const,  // constアサーションで文字列リテラル型に
+          numPoses: 1,
           minPoseDetectionConfidence: 0.5,
           minPosePresenceConfidence: 0.5,
           minTrackingConfidence: 0.5,
-          outputSegmentationMasks: false,
-          // mediapipe runtimeを指定
-          // @ts-expect-error: 型定義にはnullだが実際にはmediapipe runtimeをサポート
-          runtime: 'mediapipe' as any
-        });
+          outputSegmentationMasks: false
+        };
 
+        // MediaPipeランタイムを確実に使用するための拡張オプション
+        // @ts-ignore - MediaPipe内部API
+        if (typeof options.baseOptions.runtime === 'undefined') {
+          // @ts-ignore - MediaPipe内部API
+          options._loadMediapipeRuntimeWasm = true;
+        }
+
+        const poseLandmarker = await PoseLandmarker.createFromOptions(vision, options);
         landmarkerRef.current = poseLandmarker;
         setIsLandmarkerReady(true);
-        console.log('✅ PoseLandmarker初期化成功 (runtime: mediapipe)');
+        console.log('✅ PoseLandmarker初期化成功');
       } catch (error) {
-        console.error('❌ PoseLandmarkerの初期化に失敗しました:', error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('❌ PoseLandmarkerの初期化に失敗しました:', errorMsg);
+        setError(`初期化エラー: ${errorMsg}`);
       }
     };
 
@@ -114,29 +121,33 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) =
         }
         // ビデオの現在時間が変わった場合のみ処理（パフォーマンス向上）
         if (videoRef.current.currentTime !== lastVideoTimeRef.current) {
-          // 現在のビデオフレームでポーズ検出を実行
-          const detections = landmarkerRef.current.detectForVideo(
-            videoRef.current,
-            performance.now()
-          );
+          try {
+            // 現在のビデオフレームでポーズ検出を実行
+            const detections = landmarkerRef.current.detectForVideo(
+              videoRef.current,
+              performance.now()
+            );
 
-          // 結果を状態にセット
-          if (detections && detections.landmarks && detections.landmarks.length > 0) {
-            setResult({
-              landmarks: detections.landmarks,
-              worldLandmarks: detections.worldLandmarks || []
-            });
-            if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
-              console.log('✅ ポーズ検出成功: ランドマーク数', detections.landmarks[0].length);
+            // 結果を状態にセット
+            if (detections && detections.landmarks && detections.landmarks.length > 0) {
+              setResult({
+                landmarks: detections.landmarks,
+                worldLandmarks: detections.worldLandmarks || []
+              });
+              if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
+                console.log('✅ ポーズ検出成功: ランドマーク数', detections.landmarks[0].length);
+              }
+            } else {
+              if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
+                console.log('❌ ポーズ検出失敗またはランドマークなし');
+              }
             }
-          } else {
-            if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
-              console.log('❌ ポーズ検出失敗またはランドマークなし');
-            }
+
+            // 最後に処理したビデオ時間を更新
+            lastVideoTimeRef.current = videoRef.current.currentTime;
+          } catch (detectionError) {
+            console.error('🔍 フレーム処理中に検出エラーが発生:', detectionError);
           }
-
-          // 最後に処理したビデオ時間を更新
-          lastVideoTimeRef.current = videoRef.current.currentTime;
         }
       } catch (error) {
         console.error('❌ フレーム処理中にエラーが発生しました:', error);
@@ -157,5 +168,5 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) =
     };
   }, [isLandmarkerReady, videoRef]);
 
-  return result;
+  return { result, error, isReady: isLandmarkerReady };
 };

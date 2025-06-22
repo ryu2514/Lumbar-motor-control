@@ -1,10 +1,12 @@
 // src/NewLumbarMotorControlApp.tsx
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, Play, Pause, RotateCcw, AlertCircle, Info } from 'lucide-react';
+import { Upload, Play, Pause } from 'lucide-react';
+import { usePoseLandmarker } from './hooks/usePoseLandmarker';
+import type { PoseLandmarkerResult } from './types';
 
 // =================================================================
-// 1. 型定義と定数 (重複をなくし、一箇所にまとめました)
+// 1. 型定義と定数
 // =================================================================
 
 interface NormalizedLandmark {
@@ -12,11 +14,6 @@ interface NormalizedLandmark {
   y: number;
   z: number;
   visibility?: number;
-}
-
-interface PoseLandmarkerResult {
-  landmarks: NormalizedLandmark[][];
-  worldLandmarks: NormalizedLandmark[][];
 }
 
 export type TestType = "standingHipFlex" | "rockBack" | "seatedKneeExt";
@@ -30,100 +27,13 @@ interface Metric {
   normalRange: string;
 }
 
-const POSE_LANDMARKS = {
-  NOSE: 0, LEFT_EYE_INNER: 1, LEFT_EYE: 2, LEFT_EYE_OUTER: 3,
-  RIGHT_EYE_INNER: 4, RIGHT_EYE: 5, RIGHT_EYE_OUTER: 6,
-  LEFT_EAR: 7, RIGHT_EAR: 8, MOUTH_LEFT: 9, MOUTH_RIGHT: 10,
-  LEFT_SHOULDER: 11, RIGHT_SHOULDER: 12, LEFT_ELBOW: 13, RIGHT_ELBOW: 14,
-  LEFT_WRIST: 15, RIGHT_WRIST: 16, LEFT_PINKY: 17, RIGHT_PINKY: 18,
-  LEFT_INDEX: 19, RIGHT_INDEX: 20, LEFT_THUMB: 21, RIGHT_THUMB: 22,
-  LEFT_HIP: 23, RIGHT_HIP: 24, LEFT_KNEE: 25, RIGHT_KNEE: 26,
-  LEFT_ANKLE: 27, RIGHT_ANKLE: 28, LEFT_HEEL: 29, RIGHT_HEEL: 30,
-  LEFT_FOOT_INDEX: 31, RIGHT_FOOT_INDEX: 32
-};
-
 // =================================================================
-// 2. ヘルパー関数 (角度計算など)
+// 2. ヘルパー関数
 // =================================================================
-
-const radToDeg = (rad: number) => (rad * 180) / Math.PI;
-
-const calculateVector = (pointA: NormalizedLandmark, pointB: NormalizedLandmark) => ({
-  x: pointB.x - pointA.x, y: pointB.y - pointA.y, z: pointB.z - pointA.z
-});
-
-const calculateMagnitude = (vector: { x: number; y: number; z: number }) =>
-  Math.sqrt(vector.x ** 2 + vector.y ** 2 + vector.z ** 2);
-
-const calculateAngleBetweenVectors = (v1: any, v2: any) => {
-  const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-  const mag1 = calculateMagnitude(v1);
-  const mag2 = calculateMagnitude(v2);
-  return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2 + 1e-6))));
-};
-
-const calculate2DAngle = (p1: any, vertex: any, p2: any) => {
-  const v1 = { x: p1.x - vertex.x, y: p1.y - vertex.y };
-  const v2 = { x: p2.x - vertex.x, y: p2.y - vertex.y };
-  const dot = v1.x * v2.x + v1.y * v2.y;
-  const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
-  const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-  return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2 + 1e-6))));
-};
 
 // =================================================================
 // 3. カスタムフック (ロジック部分)
 // =================================================================
-
-// 姿勢検出フック (モック実装)
-const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) => {
-  const [landmarks, setLandmarks] = useState<NormalizedLandmark[][] | null>(null);
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const requestRef = useRef<number>();
-
-  useEffect(() => {
-    let isMounted = true;
-    console.log("📱 Mock: Loading PoseLandmarker model...");
-    const timer = setTimeout(() => {
-      if (isMounted) {
-        console.log("📱 Mock: PoseLandmarker model loaded.");
-        setIsModelLoaded(true);
-      }
-    }, 1500);
-    return () => { isMounted = false; clearTimeout(timer); };
-  }, []);
-
-  const processFrame = useCallback((time: number) => {
-    if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) {
-      requestRef.current = requestAnimationFrame(processFrame);
-      return;
-    }
-
-    const mockLandmarks = [
-      Array.from({ length: 33 }, (_, i) => ({
-        x: 0.5 + Math.sin(time / 500 + i * 0.5) * 0.2,
-        y: 0.5 + Math.cos(time / 500 + i * 0.5) * 0.2,
-        z: 0.0,
-        visibility: 0.95
-      }))
-    ];
-    setLandmarks(mockLandmarks);
-    requestRef.current = requestAnimationFrame(processFrame);
-  }, [videoRef]);
-
-  useEffect(() => {
-    if (isModelLoaded) {
-      console.log("📱 Starting video frame processing");
-      requestRef.current = requestAnimationFrame(processFrame);
-    }
-    return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
-  }, [isModelLoaded, processFrame]);
-
-  return { landmarks, isModelLoaded, error };
-};
 
 // 指標計算フック
 const useMetrics = (testType: TestType, landmarks: NormalizedLandmark[][] | null): Metric[] => {
@@ -144,10 +54,8 @@ const useMetrics = (testType: TestType, landmarks: NormalizedLandmark[][] | null
     }
   };
 
-  if (!landmarks || !landmarks[0]) return [];
-  return calculateMetrics(landmarks[0]);
+  return calculateMetrics(landmarks?.[0] ?? []);
 };
-
 
 // =================================================================
 // 4. UIコンポーネント (画面の各部品)
@@ -231,7 +139,9 @@ const NewLumbarMotorControlApp: React.FC = () => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { landmarks, isModelLoaded, error: poseError } = usePoseLandmarker(videoRef);
+  const { result, isReady: isModelLoaded, error: poseError } = usePoseLandmarker(videoRef);
+  // ランドマークの取得方法を実装に合わせて変更
+  const landmarks = result?.landmarks || null;
   const metrics = useMetrics(testType, landmarks);
 
   const handleVideoUpload = useCallback((file: File) => {
