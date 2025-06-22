@@ -97,14 +97,77 @@ const PoseVisualizer: React.FC<{
   videoWidth: number;
   videoHeight: number;
 }> = ({ landmarks, videoWidth, videoHeight }) => {
-  if (!landmarks || !landmarks[0]) return null;
-  return (
-    <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" viewBox={`0 0 ${videoWidth} ${videoHeight}`}>
-      {landmarks[0].map((lm, i) => (
-        <circle key={i} cx={lm.x * videoWidth} cy={lm.y * videoHeight} r="5" fill="#f56565" />
-      ))}
-    </svg>
-  );
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // ポーズ骨格の接続定義
+  const connections = [
+    // 顔
+    [0, 1], [1, 2], [2, 3], [3, 4], [0, 4],
+    // 左腕
+    [11, 13], [13, 15], [15, 17], [17, 19], [19, 15], [15, 21],
+    // 右腕
+    [12, 14], [14, 16], [16, 18], [18, 20], [20, 16], [16, 22],
+    // 胴体
+    [11, 12], [11, 23], [12, 24], [23, 24],
+    // 左脚
+    [23, 25], [25, 27], [27, 29], [29, 31],
+    // 右脚
+    [24, 26], [26, 28], [28, 30], [30, 32]
+  ];
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !landmarks || landmarks.length === 0) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // キャンバスのサイズ設定
+    canvas.width = videoWidth;
+    canvas.height = videoHeight;
+    
+    // キャンバスをクリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // すべてのポーズに対して
+    landmarks.forEach((pose) => {
+      // ランドマーク間の接続を描画（骨格線）
+      ctx.strokeStyle = '#00FF00';
+      ctx.lineWidth = 2;
+      
+      connections.forEach(([start, end]) => {
+        if (start < pose.length && end < pose.length) {
+          const startPoint = pose[start];
+          const endPoint = pose[end];
+          
+          if (startPoint && endPoint && 
+              startPoint.visibility && startPoint.visibility > 0.5 &&
+              endPoint.visibility && endPoint.visibility > 0.5) {
+            ctx.beginPath();
+            ctx.moveTo(startPoint.x * canvas.width, startPoint.y * canvas.height);
+            ctx.lineTo(endPoint.x * canvas.width, endPoint.y * canvas.height);
+            ctx.stroke();
+          }
+        }
+      });
+      
+      // 各ランドマークを描画
+      pose.forEach((point) => {
+        if (point.visibility && point.visibility > 0.5) {
+          ctx.fillStyle = '#FF0000';
+          ctx.beginPath();
+          ctx.arc(
+            point.x * canvas.width, 
+            point.y * canvas.height, 
+            3, 0, 2 * Math.PI
+          );
+          ctx.fill();
+        }
+      });
+    });
+  }, [landmarks, videoWidth, videoHeight, connections]);
+
+  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />;
 };
 
 // 指標表示
@@ -182,7 +245,15 @@ const NewLumbarMotorControlApp: React.FC = () => {
           ) : (
             <div>
               <div className="relative bg-black w-full aspect-video mb-4">
-                <video ref={videoRef} src={videoUrl} className="w-full h-full object-contain" loop playsInline />
+                <video 
+                  ref={videoRef} 
+                  src={videoUrl} 
+                  className="w-full h-full object-contain" 
+                  loop 
+                  playsInline 
+                  onLoadedMetadata={() => console.log('✅ ビデオメタデータのロード完了')}
+                  onLoadedData={() => console.log('✅ ビデオデータのロード完了')}
+                />
                 {isModelLoaded && videoRef.current && (
                   <PoseVisualizer landmarks={landmarks} videoWidth={videoRef.current.videoWidth} videoHeight={videoRef.current.videoHeight} />
                 )}

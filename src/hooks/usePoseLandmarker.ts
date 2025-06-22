@@ -79,10 +79,21 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) =
       return;
     }
     
-    if (!videoRef.current) {
-      console.log('ℹ️ ビデオ要素が存在しないため、フレーム処理をスキップ');
+    // VideoRefが存在するかきちんと確認（直接CSSセレクタでビデオを検索してログ）
+    const videoElement = videoRef?.current;
+    if (!videoElement) {
+      const allVideos = document.querySelectorAll('video');
+      console.log(`ℹ️ ビデオ要素が参照できません。ページ内のビデオ要素数: ${allVideos.length}`);
       return;
     }
+    
+    // ビデオのロード状態を確認
+    console.log('🎥 ビデオ状態:', { 
+      readyState: videoElement.readyState,
+      width: videoElement.videoWidth, 
+      height: videoElement.videoHeight,
+      duration: videoElement.duration
+    });
 
     const detectFrame = () => {
       try {
