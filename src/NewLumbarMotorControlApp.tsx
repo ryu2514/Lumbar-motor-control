@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, Play, Pause } from 'lucide-react';
 import { usePoseLandmarker } from './hooks/usePoseLandmarker';
-import type { PoseLandmarkerResult } from './types';
 
 // =================================================================
 // 1. 型定義と定数
