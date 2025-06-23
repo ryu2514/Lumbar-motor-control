@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, Play, Pause } from 'lucide-react';
 
 // MediaPipe の型定義
-import { NormalizedLandmark } from '@mediapipe/tasks-vision';
+import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 
 // カスタムフックのインポート
 import { usePoseLandmarker } from './hooks/usePoseLandmarker';
@@ -68,25 +68,7 @@ const TestSelector: React.FC<{
   );
 };
 
-// 動画アップローダー
-// 本プロジェクトでは直接利用しなくなりましたが、将来のために残しておきます
-const VideoUploader: React.FC<{ onVideoUpload: (file: File) => void }> = ({ onVideoUpload }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      onVideoUpload(e.target.files[0]);
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded p-4">
-      <Upload className="w-12 h-12 text-gray-400 mb-2" />
-      <p className="mb-4 text-sm text-gray-500">動画をアップロードして分析を開始します</p>
-      <input ref={inputRef} type="file" className="hidden" onChange={handleChange} accept="video/*" />
-      <button className="bg-blue-500 hover:bg-blue-600 text-white rounded px-4 py-2" onClick={() => inputRef.current?.click()}>ファイルを選択</button>
-    </div>
-  );
-};
+// 注意: 将来的に動画アップローダーコンポーネントが必要になる場合は再実装してください
 
 // 姿勢ビジュアライザー
 const PoseVisualizer: React.FC<{
@@ -242,7 +224,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   }, [isReady]);
   
   // 指標の計算
-  const metrics = useMetrics(testType, landmarks);
+  const metrics = useMetrics(result, testType);
 
   const handleVideoUpload = useCallback((file: File) => {
     // 動画がアップロードされたとき
@@ -338,7 +320,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               {/* ポーズ描画オーバーレイ */}
               {isVideoLoaded && landmarks && (
                 <PoseVisualizer 
-                  landmarks={landmarks}
+                  landmarks={landmarks as NormalizedLandmark[][]} 
                   videoWidth={videoRef.current?.videoWidth || 640}
                   videoHeight={videoRef.current?.videoHeight || 480}
                 />
