@@ -200,8 +200,9 @@ const NewLumbarMotorControlApp: React.FC = () => {
   const [testType, setTestType] = useState<TestType>('standingHipFlex');
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { result, isReady: isModelLoaded, error: poseError } = usePoseLandmarker(videoRef);
+  const { result, isReady: isModelLoaded, error: poseError } = usePoseLandmarker(videoRef, isVideoLoaded);
   // ランドマークの取得方法を実装に合わせて変更
   const landmarks = result?.landmarks || null;
   const metrics = useMetrics(testType, landmarks);
@@ -251,8 +252,14 @@ const NewLumbarMotorControlApp: React.FC = () => {
                   className="w-full h-full object-contain" 
                   loop 
                   playsInline 
-                  onLoadedMetadata={() => console.log('✅ ビデオメタデータのロード完了')}
-                  onLoadedData={() => console.log('✅ ビデオデータのロード完了')}
+                  onLoadedMetadata={() => {
+                    console.log('✅ ビデオメタデータのロード完了');
+                    // ここではまだsetIsVideoLoadedを呼ばない
+                  }}
+                  onLoadedData={() => {
+                    console.log('✅ ビデオデータのロード完了');
+                    setIsVideoLoaded(true); // ビデオデータがロードされたらフラグをセット
+                  }}
                 />
                 {isModelLoaded && videoRef.current && (
                   <PoseVisualizer landmarks={landmarks} videoWidth={videoRef.current.videoWidth} videoHeight={videoRef.current.videoHeight} />

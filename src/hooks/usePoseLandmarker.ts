@@ -5,8 +5,9 @@ import type { PoseLandmarkerResult } from '../types';
 /**
  * MediaPipe Pose Landmarker (runtime = mediapipe) を使用するカスタムフック
  * @param videoRef - 解析対象の video 要素への ref
+ * @param isVideoLoaded - ビデオがロードされたかどうかを示すフラグ
  */
-export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) => {
+export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, isVideoLoaded?: boolean) => {
   const [result, setResult] = useState<PoseLandmarkerResult | null>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
   const [isLandmarkerReady, setIsLandmarkerReady] = useState(false);
@@ -79,7 +80,13 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) =
       return;
     }
     
-    // VideoRefが存在するかきちんと確認（直接CSSセレクタでビデオを検索してログ）
+    // ビデオがロードされていない場合は処理をスキップ
+    if (!isVideoLoaded) {
+      console.log('ℹ️ ビデオがまだロードされていないため、フレーム処理をスキップ');
+      return;
+    }
+    
+    // VideoRefが存在するか確認
     const videoElement = videoRef?.current;
     if (!videoElement) {
       const allVideos = document.querySelectorAll('video');
@@ -87,12 +94,25 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>) =
       return;
     }
     
-    // ビデオのロード状態を確認
+    // ビデオのロード状態を確認と詳細なデバッグ情報
     console.log('🎥 ビデオ状態:', { 
       readyState: videoElement.readyState,
       width: videoElement.videoWidth, 
       height: videoElement.videoHeight,
-      duration: videoElement.duration
+      duration: videoElement.duration,
+      isVideoLoaded: isVideoLoaded
+    });
+    
+    // DOM内のすべてのビデオタグの状態を詳細チェック
+    document.querySelectorAll('video').forEach((v, i) => {
+      console.log(`ビデオ要素[${i}]:`, {
+        width: v.videoWidth,
+        height: v.videoHeight,
+        readyState: v.readyState,
+        paused: v.paused,
+        currentSrc: v.currentSrc ? '有り' : 'なし',
+        isActive: v === videoElement
+      });
     });
 
     const detectFrame = () => {
