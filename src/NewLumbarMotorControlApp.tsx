@@ -254,15 +254,34 @@ const NewLumbarMotorControlApp: React.FC = () => {
                   playsInline 
                   onLoadedMetadata={() => {
                     console.log('✅ ビデオメタデータのロード完了');
-                    // ここではまだsetIsVideoLoadedを呼ばない
+                    console.log('📽️ ビデオ情報:', {
+                      width: videoRef.current?.videoWidth,
+                      height: videoRef.current?.videoHeight,
+                    });
                   }}
                   onLoadedData={() => {
                     console.log('✅ ビデオデータのロード完了');
-                    setIsVideoLoaded(true); // ビデオデータがロードされたらフラグをセット
+                    console.log('📽️ ビデオ情報(ロード完了時):', {
+                      width: videoRef.current?.videoWidth,
+                      height: videoRef.current?.videoHeight,
+                      readyState: videoRef.current?.readyState,
+                    });
+                    // ビデオサイズが正しく取得できているか確認してからフラグをセット
+                    if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
+                      setIsVideoLoaded(true);
+                    } else {
+                      console.warn('⚠️ ビデオサイズが取得できません');
+                      // 少し待ってから再試行
+                      setTimeout(() => setIsVideoLoaded(true), 500);
+                    }
                   }}
                 />
-                {isModelLoaded && videoRef.current && (
-                  <PoseVisualizer landmarks={landmarks} videoWidth={videoRef.current.videoWidth} videoHeight={videoRef.current.videoHeight} />
+                {isModelLoaded && isVideoLoaded && videoRef.current && videoRef.current.videoWidth > 0 && (
+                  <PoseVisualizer 
+                    landmarks={landmarks} 
+                    videoWidth={videoRef.current.videoWidth || 640} 
+                    videoHeight={videoRef.current.videoHeight || 480} 
+                  />
                 )}
               </div>
               <div className="flex justify-center gap-4">

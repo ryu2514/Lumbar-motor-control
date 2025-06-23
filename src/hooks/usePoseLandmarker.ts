@@ -74,6 +74,19 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
   }, []);
 
   // ビデオフレーム処理のループ
+  // 再レンダリングをトリガーするためにisloglevelフラグを追加
+  const [isLogLevel, setIsLogLevel] = useState(0);
+  
+  // ビデオisVideoLoaded状態が変わったときにデバッグログを出力
+  useEffect(() => {
+    console.log(`🎥 ビデオロード状態変更: ${isVideoLoaded ? 'ロード済み' : '未ロード'}`);
+    // ログレベルを変更してフレーム処理の再開をトリガー
+    if (isVideoLoaded) {
+      setIsLogLevel(prev => prev + 1);
+    }
+  }, [isVideoLoaded]);
+  
+  // 主要なフレーム処理ループ
   useEffect(() => {
     if (!isLandmarkerReady) {
       console.log('ℹ️ Landmarker未初期化のため、フレーム処理をスキップ');
@@ -197,7 +210,7 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [isLandmarkerReady, videoRef]);
+  }, [isLandmarkerReady, videoRef, isVideoLoaded, isLogLevel]);
 
   return { result, error, isReady: isLandmarkerReady };
 };
