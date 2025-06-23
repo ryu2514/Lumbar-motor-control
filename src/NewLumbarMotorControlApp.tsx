@@ -1,94 +1,91 @@
-// src/NewLumbarMotorControlApp.tsx
-
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, Play, Pause } from 'lucide-react';
+
+// MediaPipe の型定義
+import { NormalizedLandmark } from '@mediapipe/tasks-vision';
+
+// カスタムフックのインポート
 import { usePoseLandmarker } from './hooks/usePoseLandmarker';
+import { useMetrics } from './hooks/useMetrics';
 
 // =================================================================
-// 1. 型定義と定数
+// 1. タイプ定義
 // =================================================================
-
-interface NormalizedLandmark {
-  x: number;
-  y: number;
-  z: number;
-  visibility?: number;
-}
-
-export type TestType = "standingHipFlex" | "rockBack" | "seatedKneeExt";
+type TestType = 'standingHipFlex' | 'rockBack' | 'seatedKneeExt';
 
 interface Metric {
   label: string;
   value: number;
   unit: string;
+  normalRange: string;
   status: 'normal' | 'caution' | 'abnormal';
   description: string;
-  normalRange: string;
 }
 
 // =================================================================
-// 2. ヘルパー関数
+// 2. 定数定義
 // =================================================================
+const TEST_LABELS: Record<TestType, string> = {
+  standingHipFlex: '立位股関節屈曲テスト',
+  rockBack: 'ロックバックテスト',
+  seatedKneeExt: '座位膝伸展テスト'
+};
 
-// =================================================================
-// 3. カスタムフック (ロジック部分)
-// =================================================================
-
-// 指標計算フック
-const useMetrics = (testType: TestType, landmarks: NormalizedLandmark[][] | null): Metric[] => {
-  const calculateMetrics = (landmarks: NormalizedLandmark[]): Metric[] => {
-    if (!landmarks || landmarks.length < 33) return [];
-    
-    // この中に各テストの計算ロジックが入ります。
-    // 今回は表示を優先するため、ダミーデータを返します。
-    switch (testType) {
-      case 'standingHipFlex':
-        return [{ label: '股関節屈曲角度', value: 92.1, unit: '°', status: 'normal', description: '立位での股関節屈曲。', normalRange: '85-95°' }];
-      case 'rockBack':
-        return [{ label: '腰椎角度変化', value: 15.5, unit: '°', status: 'caution', description: 'ロックバック時の腰椎の変化。', normalRange: '10°以下' }];
-      case 'seatedKneeExt':
-        return [{ label: '膝伸展角度', value: 165.0, unit: '°', status: 'abnormal', description: '座位での膝の伸展。', normalRange: '175-180°' }];
-      default:
-        return [];
-    }
-  };
-
-  return calculateMetrics(landmarks?.[0] ?? []);
+// デモ動画のURLマッピング
+const DEMO_VIDEOS: Record<TestType, string> = {
+  standingHipFlex: 'https://storage.googleapis.com/mediapipe-assets/standing-hip.mp4',
+  rockBack: 'https://storage.googleapis.com/mediapipe-assets/rock-back.mp4',
+  seatedKneeExt: 'https://storage.googleapis.com/mediapipe-assets/seated-knee.mp4'
 };
 
 // =================================================================
-// 4. UIコンポーネント (画面の各部品)
+// 3. ユーティリティコンポーネント
 // =================================================================
 
-// テスト選択
+// テスト選択コンポーネント
 const TestSelector: React.FC<{
-  testType: TestType;
-  setTestType: (type: TestType) => void;
-}> = ({ testType, setTestType }) => (
-    <div className="mb-4">
-      <h2 className="text-lg font-semibold mb-2">評価テストの選択</h2>
-      <div className="flex flex-wrap gap-2">
-        <button className={`px-3 py-2 rounded ${testType === 'standingHipFlex' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setTestType('standingHipFlex')}>立位股関節屈曲テスト</button>
-        <button className={`px-3 py-2 rounded ${testType === 'rockBack' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setTestType('rockBack')}>ロックバックテスト</button>
-        <button className={`px-3 py-2 rounded ${testType === 'seatedKneeExt' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`} onClick={() => setTestType('seatedKneeExt')}>座位膝伸展テスト</button>
+  currentTest: TestType;
+  onChange: (test: TestType) => void;
+}> = ({ currentTest, onChange }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-md mb-4">
+      <div className="flex border-b">
+        {(Object.keys(TEST_LABELS) as TestType[]).map((type) => (
+          <button
+            key={type}
+            className={`flex-1 py-3 px-4 text-center transition-colors ${
+              currentTest === type
+                ? 'bg-blue-500 text-white font-medium'
+                : 'hover:bg-gray-100'
+            }`}
+            onClick={() => onChange(type)}
+          >
+            {TEST_LABELS[type]}
+          </button>
+        ))}
       </div>
     </div>
   );
+};
 
 // 動画アップローダー
+// 本プロジェクトでは直接利用しなくなりましたが、将来のために残しておきます
 const VideoUploader: React.FC<{ onVideoUpload: (file: File) => void }> = ({ onVideoUpload }) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) onVideoUpload(e.target.files[0]);
-    };
-    return (
-      <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-        <Upload className="w-12 h-12 mx-auto text-gray-400 mb-2" />
-        <p className="text-lg font-medium">動画ファイルをアップロード</p>
-        <button className="mt-2 px-4 py-2 bg-blue-500 text-white rounded" onClick={() => inputRef.current?.click()}>ファイルを選択</button>
-        <input type="file" accept="video/mp4,video/webm,video/ogg" className="hidden" ref={inputRef} onChange={handleChange} />
-      </div>
-    );
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      onVideoUpload(e.target.files[0]);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded p-4">
+      <Upload className="w-12 h-12 text-gray-400 mb-2" />
+      <p className="mb-4 text-sm text-gray-500">動画をアップロードして分析を開始します</p>
+      <input ref={inputRef} type="file" className="hidden" onChange={handleChange} accept="video/*" />
+      <button className="bg-blue-500 hover:bg-blue-600 text-white rounded px-4 py-2" onClick={() => inputRef.current?.click()}>ファイルを選択</button>
+    </div>
+  );
 };
 
 // 姿勢ビジュアライザー
@@ -98,206 +95,338 @@ const PoseVisualizer: React.FC<{
   videoHeight: number;
 }> = ({ landmarks, videoWidth, videoHeight }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
-  // ポーズ骨格の接続定義
-  const connections = [
-    // 顔
-    [0, 1], [1, 2], [2, 3], [3, 4], [0, 4],
-    // 左腕
-    [11, 13], [13, 15], [15, 17], [17, 19], [19, 15], [15, 21],
-    // 右腕
-    [12, 14], [14, 16], [16, 18], [18, 20], [20, 16], [16, 22],
-    // 胴体
-    [11, 12], [11, 23], [12, 24], [23, 24],
-    // 左脚
-    [23, 25], [25, 27], [27, 29], [29, 31],
-    // 右脚
-    [24, 26], [26, 28], [28, 30], [30, 32]
-  ];
 
+  // ランドマークを描画するためのEffect
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !landmarks || landmarks.length === 0) return;
-    
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
-    // キャンバスのサイズ設定
+
+    // 以前の描画をクリア
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 描画キャンバスのサイズ調整
     canvas.width = videoWidth;
     canvas.height = videoHeight;
-    
-    // キャンバスをクリア
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // すべてのポーズに対して
-    landmarks.forEach((pose) => {
-      // ランドマーク間の接続を描画（骨格線）
-      ctx.strokeStyle = '#00FF00';
-      ctx.lineWidth = 2;
+
+    // 最初の人物のランドマーク
+    const personLandmarks = landmarks[0];
+
+    // スケルトン描画用の操作
+    const drawConnections = () => {
+      if (!personLandmarks) return;
       
+      // 接続線の定義（MediaPipe BlazePose GHUMモデルのスケルトン）
+      const connections = [
+        [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], // 顔と首
+        [9, 10], // 肩
+        [11, 13], [13, 15], [15, 17], [17, 19], [19, 15], [15, 21], // 左腕
+        [12, 14], [14, 16], [16, 18], [18, 20], [20, 16], [16, 22], // 右腕
+        [11, 23], [12, 24], [23, 24], // 上半身
+        [23, 25], [25, 27], [27, 29], [29, 31], [31, 27], // 左足
+        [24, 26], [26, 28], [28, 30], [30, 32], [32, 28]  // 右足
+      ];
+
+      // 接続線を描画
+      ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+      ctx.lineWidth = 2;
+
       connections.forEach(([start, end]) => {
-        if (start < pose.length && end < pose.length) {
-          const startPoint = pose[start];
-          const endPoint = pose[end];
-          
-          if (startPoint && endPoint && 
-              startPoint.visibility && startPoint.visibility > 0.5 &&
-              endPoint.visibility && endPoint.visibility > 0.5) {
-            ctx.beginPath();
-            ctx.moveTo(startPoint.x * canvas.width, startPoint.y * canvas.height);
-            ctx.lineTo(endPoint.x * canvas.width, endPoint.y * canvas.height);
-            ctx.stroke();
-          }
+        if (personLandmarks[start] && personLandmarks[end] && 
+            personLandmarks[start].visibility && personLandmarks[end].visibility &&
+            personLandmarks[start].visibility > 0.5 && personLandmarks[end].visibility > 0.5) {
+          ctx.beginPath();
+          ctx.moveTo(
+            personLandmarks[start].x * videoWidth,
+            personLandmarks[start].y * videoHeight
+          );
+          ctx.lineTo(
+            personLandmarks[end].x * videoWidth,
+            personLandmarks[end].y * videoHeight
+          );
+          ctx.stroke();
         }
       });
-      
-      // 各ランドマークを描画
-      pose.forEach((point) => {
-        if (point.visibility && point.visibility > 0.5) {
-          ctx.fillStyle = '#FF0000';
+    };
+
+    // ランドマーク（点）を描画
+    if (personLandmarks) {
+      // 点を描画
+      personLandmarks.forEach((landmark) => {
+        // 座標変換: 正規化された座標から絶対座標に変換
+        const x = landmark.x * videoWidth;
+        const y = landmark.y * videoHeight;
+        
+        // 可視性が低いランドマークは描画しない
+        if (landmark.visibility && landmark.visibility > 0.5) {
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
           ctx.beginPath();
-          ctx.arc(
-            point.x * canvas.width, 
-            point.y * canvas.height, 
-            3, 0, 2 * Math.PI
-          );
+          ctx.arc(x, y, 5, 0, 2 * Math.PI);
           ctx.fill();
         }
       });
-    });
-  }, [landmarks, videoWidth, videoHeight, connections]);
 
-  return <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />;
+      // スケルトン線を描画
+      drawConnections();
+    }
+
+  }, [landmarks, videoWidth, videoHeight]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute top-0 left-0 w-full h-full z-10 pointer-events-none"
+    />
+  );
 };
 
 // 指標表示
 const MetricsDisplay: React.FC<{ metrics: Metric[] }> = ({ metrics }) => {
-    if (metrics.length === 0) return <div className="text-gray-500">動画を再生するとここに測定値が表示されます。</div>;
-    return (
-      <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-        <h2 className="text-lg font-semibold mb-3">測定結果</h2>
-        <div className="space-y-4">
-          {metrics.map((metric, index) => (
-            <div key={index}>
-              <div className="flex justify-between items-center mb-1">
-                <div className="font-medium">{metric.label}</div>
-                <div className={`font-semibold ${metric.status === 'normal' ? 'text-green-600' : metric.status === 'caution' ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {metric.value.toFixed(1)}{metric.unit}
-                </div>
-              </div>
-              <p className="text-sm text-gray-600">{metric.description}</p>
+  if (!metrics || metrics.length === 0) {
+    return <p className="text-gray-500 text-center">指標の計算中...</p>;
+  }
+
+  return (
+    <div>
+      <h3 className="text-lg font-medium mb-3">評価結果</h3>
+      <div className="space-y-4">
+        {metrics.map((metric, index) => (
+          <div key={index} className="bg-gray-50 p-3 rounded-md">
+            <div className="flex justify-between items-center mb-1">
+              <h4 className="font-medium">{metric.label}</h4>
+              <span className={`px-2 py-0.5 rounded text-sm ${
+                metric.status === 'normal' ? 'bg-green-100 text-green-800' :
+                metric.status === 'caution' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-red-100 text-red-800'
+              }`}>
+                {metric.status === 'normal' ? '正常' : metric.status === 'caution' ? '注意' : '異常'}
+              </span>
             </div>
-          ))}
-        </div>
+            <p className="text-2xl font-bold">{metric.value} {metric.unit}</p>
+            <p className="text-sm text-gray-600">基準範囲: {metric.normalRange}</p>
+            <p className="text-xs mt-1 text-gray-500">{metric.description}</p>
+          </div>
+        ))}
       </div>
-    );
+    </div>
+  );
 };
 
 // =================================================================
 // 5. メインアプリケーションコンポーネント
 // =================================================================
-const NewLumbarMotorControlApp: React.FC = () => {
+export const NewLumbarMotorControlApp: React.FC = () => {
+  // テスト種類の状態管理
   const [testType, setTestType] = useState<TestType>('standingHipFlex');
-  const [videoUrl, setVideoUrl] = useState<string>('');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string>(DEMO_VIDEOS[testType]);
+  const [userUploadedVideo, setUserUploadedVideo] = useState<string | null>(null);
+  const [useUploadedVideo, setUseUploadedVideo] = useState<boolean>(false);
+  const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
+  
+  // ビデオ要素への参照
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { result, isReady: isModelLoaded, error: poseError } = usePoseLandmarker(videoRef, isVideoLoaded);
-  // ランドマークの取得方法を実装に合わせて変更
+  
+  // ポーズ検出フックの利用
+  const { result, isReady } = usePoseLandmarker(videoRef, isVideoLoaded);
+  
+  // ランドマークの取得
   const landmarks = result?.landmarks || null;
+  
+  // モデルの状態を更新
+  useEffect(() => {
+    setIsModelLoaded(isReady);
+  }, [isReady]);
+  
+  // 指標の計算
   const metrics = useMetrics(testType, landmarks);
 
   const handleVideoUpload = useCallback((file: File) => {
+    // 動画がアップロードされたとき
     const url = URL.createObjectURL(file);
-    setVideoUrl(url);
+    setUserUploadedVideo(url);
+    setUseUploadedVideo(true);
+    setVideoUrl(url);  // アップロードされた動画を現在の動画として設定
+    setIsVideoLoaded(false);  // 動画切り替え時にリセット
+    setIsPlaying(false);  // 一時停止状態に戻す
+    console.log('動画がアップロードされました:', url);
   }, []);
 
-  const togglePlayback = () => {
-    if (videoRef.current) {
-      if (isPlaying) videoRef.current.pause();
-      else videoRef.current.play();
-    }
-  };
-
+  // テスト種類が変更されたときの動画切り替え処理
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    video.addEventListener('play', onPlay);
-    video.addEventListener('pause', onPause);
-    return () => {
-      video.removeEventListener('play', onPlay);
-      video.removeEventListener('pause', onPause);
-    };
+    if (useUploadedVideo && userUploadedVideo) {
+      // アップロード動画を優先的に表示
+      setVideoUrl(userUploadedVideo);
+    } else {
+      // 非アップロード時はテスト種類に応じたデモ動画を表示
+      setVideoUrl(DEMO_VIDEOS[testType]);
+    }
+    // 動画切り替え時の状態リセット
+    setIsVideoLoaded(false);
+    setIsPlaying(false);
+    // ログ出力
+    console.log('テスト種類変更:', testType, useUploadedVideo ? 'アップロード動画表示' : 'デモ動画表示');
+    // 動画を停止
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+  }, [testType, useUploadedVideo, userUploadedVideo]);
+
+  // 初期化時にデフォルトのデモ動画をセットする
+  useEffect(() => {
+    // 初期値の一回セットのみ
+    const defaultVideo = DEMO_VIDEOS.standingHipFlex;
+    setVideoUrl(defaultVideo);
+    console.log(`デフォルト動画のセット: ${defaultVideo}`);
   }, []);
 
+  // デモ動画とアップロード動画の切り替え
+  const toggleVideoSource = useCallback(() => {
+    setUseUploadedVideo(prev => !prev);
+  }, []);
+
+  // 再生/一時停止トグル
+  const togglePlayPause = useCallback(() => {
+    if (!videoRef.current) return;
+    
+    if (isPlaying) {
+      videoRef.current.pause();
+    } else {
+      videoRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  }, [isPlaying]);
+
+  // 動画のロード完了時の処理
+  const handleVideoLoaded = useCallback(() => {
+    setIsVideoLoaded(true);
+    console.log('動画のロード完了');
+  }, []);
+
+  // ファイルアップロード用の隠しInput参照
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // JSXレンダリング部分
   return (
-    <div className="bg-gray-100 min-h-screen p-4">
-      <h1 className="text-xl font-bold text-center mb-4">腰椎モーターコントロール評価アプリ</h1>
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">腰部運動制御評価アプリケーション</h1>
       
-      <TestSelector testType={testType} setTestType={setTestType} />
+      {/* テストセレクター */}
+      <TestSelector currentTest={testType} onChange={setTestType} />
       
-      <div className="grid md:grid-cols-2 gap-4 mt-4">
-        {/* 左側: 動画エリア */}
-        <div className="bg-white rounded-lg shadow-md p-4">
-          {!videoUrl ? (
-            <VideoUploader onVideoUpload={handleVideoUpload} />
-          ) : (
-            <div>
-              <div className="relative bg-black w-full aspect-video mb-4">
-                <video 
-                  ref={videoRef} 
-                  src={videoUrl} 
-                  className="w-full h-full object-contain" 
-                  loop 
-                  playsInline 
-                  onLoadedMetadata={() => {
-                    console.log('✅ ビデオメタデータのロード完了');
-                    console.log('📽️ ビデオ情報:', {
-                      width: videoRef.current?.videoWidth,
-                      height: videoRef.current?.videoHeight,
-                    });
-                  }}
-                  onLoadedData={() => {
-                    console.log('✅ ビデオデータのロード完了');
-                    console.log('📽️ ビデオ情報(ロード完了時):', {
-                      width: videoRef.current?.videoWidth,
-                      height: videoRef.current?.videoHeight,
-                      readyState: videoRef.current?.readyState,
-                    });
-                    // ビデオサイズが正しく取得できているか確認してからフラグをセット
-                    if (videoRef.current?.videoWidth && videoRef.current?.videoHeight) {
-                      setIsVideoLoaded(true);
-                    } else {
-                      console.warn('⚠️ ビデオサイズが取得できません');
-                      // 少し待ってから再試行
-                      setTimeout(() => setIsVideoLoaded(true), 500);
+      {/* メインコンテンツ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 左側: 動画と操作UIエリア */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <h2 className="text-lg font-semibold mb-4">{TEST_LABELS[testType]}</h2>
+            
+            {/* 動画表示エリア */}
+            <div className="relative aspect-video bg-black rounded overflow-hidden mb-4">
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                className="w-full h-full object-contain"
+                onLoadedData={handleVideoLoaded}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+              />
+              
+              {/* ポーズ描画オーバーレイ */}
+              {isVideoLoaded && landmarks && (
+                <PoseVisualizer 
+                  landmarks={landmarks}
+                  videoWidth={videoRef.current?.videoWidth || 640}
+                  videoHeight={videoRef.current?.videoHeight || 480}
+                />
+              )}
+              
+              {/* 読み込み中表示 */}
+              {!isVideoLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
+                  動画読み込み中...
+                </div>
+              )}
+            </div>
+            
+            {/* 動画コントロールエリア */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              {/* 再生/一時停止ボタン */}
+              <button 
+                className="flex items-center space-x-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                onClick={togglePlayPause}
+                disabled={!isVideoLoaded}
+              >
+                {isPlaying ? (
+                  <>
+                    <Pause size={16} />
+                    <span>一時停止</span>
+                  </>
+                ) : (
+                  <>
+                    <Play size={16} />
+                    <span>再生</span>
+                  </>
+                )}
+              </button>
+              
+              <div className="flex space-x-3">
+                {/* デモ動画/アップロード動画切り替えボタン - ユーザーがアップロードした動画がある場合のみ表示 */}
+                {userUploadedVideo && (
+                  <button 
+                    className={`px-3 py-2 rounded border ${
+                      useUploadedVideo 
+                        ? 'bg-gray-100 border-gray-400' 
+                        : 'bg-white border-gray-300'
+                    }`}
+                    onClick={toggleVideoSource}
+                  >
+                    {useUploadedVideo ? 'デモ動画を使用' : 'アップロード動画を使用'}
+                  </button>
+                )}
+                
+                {/* 動画アップロードボタン */}
+                <button 
+                  className="px-3 py-2 rounded border border-gray-300 bg-white flex items-center space-x-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={16} />
+                  <span>動画をアップロード</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="video/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleVideoUpload(e.target.files[0]);
                     }
                   }}
                 />
-                {isModelLoaded && isVideoLoaded && videoRef.current && videoRef.current.videoWidth > 0 && (
-                  <PoseVisualizer 
-                    landmarks={landmarks} 
-                    videoWidth={videoRef.current.videoWidth || 640} 
-                    videoHeight={videoRef.current.videoHeight || 480} 
-                  />
-                )}
-              </div>
-              <div className="flex justify-center gap-4">
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2" onClick={togglePlayback}>
-                  {isPlaying ? <><Pause /> 一時停止</> : <><Play /> 再生</>}
-                </button>
               </div>
             </div>
-          )}
-          {!isModelLoaded && <p className="text-center text-gray-500 mt-2">分析モデルを読み込んでいます...</p>}
-          {poseError && <p className="text-red-500 text-center mt-2">{poseError}</p>}
+            
+            {/* モデルロード状態 */}
+            <div className="text-sm text-gray-500">
+              モデル状態: {isModelLoaded ? '読み込み完了' : '読み込み中...'}
+            </div>
+          </div>
         </div>
-
-        {/* 右側: 分析結果エリア */}
+        
+        {/* 右側: 評価結果表示エリア */}
         <div className="bg-white rounded-lg shadow-md p-4">
-          <MetricsDisplay metrics={metrics} />
+          <h2 className="text-lg font-semibold mb-4">評価結果</h2>
+          
+          {/* 評価指標の表示 */}
+          {isVideoLoaded ? (
+            <MetricsDisplay metrics={metrics} />
+          ) : (
+            <p className="text-gray-500 text-center">動画を再生すると評価結果が表示されます</p>
+          )}
         </div>
       </div>
     </div>
