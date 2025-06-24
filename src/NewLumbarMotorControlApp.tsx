@@ -337,6 +337,19 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     getStatistics
   } = useTimeSeriesData();
   
+  // 動画再生状態に応じた自動記録制御
+  useEffect(() => {
+    if (isPlaying && isVideoLoaded && isModelLoaded && !timeSeriesData.isRecording) {
+      // 動画が再生開始されたら自動的に記録開始
+      startRecording();
+      setStatusMessage('動画再生開始 - 角度記録を自動開始しました');
+    } else if (!isPlaying && timeSeriesData.isRecording) {
+      // 動画が停止されたら記録も停止
+      stopRecording();
+      setStatusMessage('動画停止 - 角度記録を停止しました');
+    }
+  }, [isPlaying, isVideoLoaded, isModelLoaded, timeSeriesData.isRecording, startRecording, stopRecording]);
+
   // 腰椎角度の取得と記録
   useEffect(() => {
     const lumbarAngleMetric = metrics.find(m => m.label === '腰椎屈曲・伸展角度');
@@ -360,6 +373,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // テスト種類が変更されたときの動画切り替え処理
   useEffect(() => {
+    // テスト種類変更時は記録を停止
+    if (timeSeriesData.isRecording) {
+      stopRecording();
+      setStatusMessage('テスト切り替えのため記録を停止しました');
+    }
+    
     if (useUploadedVideo && userUploadedVideo) {
       // アップロード動画を優先的に表示
       setVideoUrl(userUploadedVideo);
@@ -376,7 +395,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     if (videoRef.current) {
       videoRef.current.pause();
     }
-  }, [testType, useUploadedVideo, userUploadedVideo]);
+  }, [testType, useUploadedVideo, userUploadedVideo, timeSeriesData.isRecording, stopRecording]);
 
   // 初期化時にデフォルトのデモ動画をセットする
   useEffect(() => {
@@ -420,14 +439,14 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setShowChart(prev => !prev);
   }, []);
   
-  // 記録開始/停止の切り替え
+  // 記録開始/停止の切り替え（手動制御）
   const toggleRecording = useCallback(() => {
     if (timeSeriesData.isRecording) {
       stopRecording();
-      setStatusMessage('記録を停止しました');
+      setStatusMessage('手動で記録を停止しました');
     } else {
       startRecording();
-      setStatusMessage('角度の記録を開始しました');
+      setStatusMessage('手動で角度の記録を開始しました');
     }
   }, [timeSeriesData.isRecording, startRecording, stopRecording]);
 
@@ -574,9 +593,14 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   }`}
                   onClick={toggleRecording}
                   disabled={!isVideoLoaded}
+                  title={isPlaying ? '自動記録中 - 手動での停止も可能' : '手動記録制御'}
                 >
                   <Activity size={16} />
-                  <span>{timeSeriesData.isRecording ? '記録停止' : '記録開始'}</span>
+                  <span>
+                    {timeSeriesData.isRecording 
+                      ? (isPlaying ? '記録中（自動）' : '記録停止') 
+                      : '手動記録開始'}
+                  </span>
                 </button>
                 
                 {/* 動画アップロードボタン */}
