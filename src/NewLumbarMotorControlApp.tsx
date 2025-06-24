@@ -33,9 +33,9 @@ const TEST_LABELS: Record<TestType, string> = {
 
 // デモ動画のURLマッピング
 const DEMO_VIDEOS: Record<TestType, string> = {
-  standingHipFlex: 'https://storage.googleapis.com/mediapipe-assets/standing-hip.mp4',
-  rockBack: 'https://storage.googleapis.com/mediapipe-assets/rock-back.mp4',
-  seatedKneeExt: 'https://storage.googleapis.com/mediapipe-assets/seated-knee.mp4'
+  standingHipFlex: '/demo-videos/立位股関節屈曲.mp4',
+  rockBack: '/demo-videos/ロックバック.mp4',
+  seatedKneeExt: '/demo-videos/座位膝伸展.mp4'
 };
 
 // =================================================================
@@ -208,9 +208,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
+  const [showComparison, setShowComparison] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<string>('初期化中...');
   
   // ビデオ要素への参照
   const videoRef = useRef<HTMLVideoElement>(null);
+  const demoVideoRef = useRef<HTMLVideoElement>(null);
   
   // ポーズ検出フックの利用
   const { result, isReady } = usePoseLandmarker(videoRef, isVideoLoaded);
@@ -221,19 +224,26 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   // モデルの状態を更新
   useEffect(() => {
     setIsModelLoaded(isReady);
+    if (isReady) {
+      setStatusMessage('姿勢検出モデル読み込み完了');
+    } else {
+      setStatusMessage('姿勢検出モデル読み込み中...');
+    }
   }, [isReady]);
   
   // 指標の計算
   const metrics = useMetrics(result, testType);
 
   const handleVideoUpload = useCallback((file: File) => {
-    // 動画がアップロードされたとき
+    setStatusMessage('動画をアップロード中...');
     const url = URL.createObjectURL(file);
     setUserUploadedVideo(url);
     setUseUploadedVideo(true);
-    setVideoUrl(url);  // アップロードされた動画を現在の動画として設定
-    setIsVideoLoaded(false);  // 動画切り替え時にリセット
-    setIsPlaying(false);  // 一時停止状態に戻す
+    setVideoUrl(url);
+    setIsVideoLoaded(false);
+    setIsPlaying(false);
+    setShowComparison(true);
+    setStatusMessage('動画アップロード完了 - 比較表示が有効になりました');
     console.log('動画がアップロードされました:', url);
   }, []);
 
@@ -285,7 +295,13 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   // 動画のロード完了時の処理
   const handleVideoLoaded = useCallback(() => {
     setIsVideoLoaded(true);
+    setStatusMessage('動画読み込み完了 - 再生可能です');
     console.log('動画のロード完了');
+  }, []);
+
+  // 比較表示の切り替え
+  const toggleComparison = useCallback(() => {
+    setShowComparison(prev => !prev);
   }, []);
 
   // ファイルアップロード用の隠しInput参照
@@ -307,29 +323,50 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             <h2 className="text-lg font-semibold mb-4">{TEST_LABELS[testType]}</h2>
             
             {/* 動画表示エリア */}
-            <div className="relative aspect-video bg-black rounded overflow-hidden mb-4">
-              <video
-                ref={videoRef}
-                src={videoUrl}
-                className="w-full h-full object-contain"
-                onLoadedData={handleVideoLoaded}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-              />
-              
-              {/* ポーズ描画オーバーレイ */}
-              {isVideoLoaded && landmarks && (
-                <PoseVisualizer 
-                  landmarks={landmarks as NormalizedLandmark[][]} 
-                  videoWidth={videoRef.current?.videoWidth || 640}
-                  videoHeight={videoRef.current?.videoHeight || 480}
+            <div className={`grid gap-4 mb-4 ${showComparison && userUploadedVideo ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {/* メイン動画（アップロード動画または選択された動画） */}
+              <div className="relative aspect-video bg-black rounded overflow-hidden">
+                <div className="absolute top-2 left-2 z-20 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm">
+                  {useUploadedVideo ? 'アップロード動画' : 'デモ動画'}
+                </div>
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  className="w-full h-full object-contain"
+                  onLoadedData={handleVideoLoaded}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
                 />
-              )}
+                
+                {/* ポーズ描画オーバーレイ */}
+                {isVideoLoaded && landmarks && (
+                  <PoseVisualizer 
+                    landmarks={landmarks as NormalizedLandmark[][]} 
+                    videoWidth={videoRef.current?.videoWidth || 640}
+                    videoHeight={videoRef.current?.videoHeight || 480}
+                  />
+                )}
+                
+                {/* 読み込み中表示 */}
+                {!isVideoLoaded && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
+                    動画読み込み中...
+                  </div>
+                )}
+              </div>
               
-              {/* 読み込み中表示 */}
-              {!isVideoLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
-                  動画読み込み中...
+              {/* デモ動画（比較表示時） */}
+              {showComparison && userUploadedVideo && (
+                <div className="relative aspect-video bg-black rounded overflow-hidden">
+                  <div className="absolute top-2 left-2 z-20 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm">
+                    参考デモ動画
+                  </div>
+                  <video
+                    ref={demoVideoRef}
+                    src={DEMO_VIDEOS[testType]}
+                    className="w-full h-full object-contain"
+                    controls
+                  />
                 </div>
               )}
             </div>
@@ -338,7 +375,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               {/* 再生/一時停止ボタン */}
               <button 
-                className="flex items-center space-x-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                className="flex items-center space-x-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
                 onClick={togglePlayPause}
                 disabled={!isVideoLoaded}
               >
@@ -355,8 +392,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 )}
               </button>
               
-              <div className="flex space-x-3">
-                {/* デモ動画/アップロード動画切り替えボタン - ユーザーがアップロードした動画がある場合のみ表示 */}
+              <div className="flex flex-wrap gap-2">
+                {/* デモ動画/アップロード動画切り替えボタン */}
                 {userUploadedVideo && (
                   <button 
                     className={`px-3 py-2 rounded border ${
@@ -366,13 +403,27 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     }`}
                     onClick={toggleVideoSource}
                   >
-                    {useUploadedVideo ? 'デモ動画を使用' : 'アップロード動画を使用'}
+                    {useUploadedVideo ? 'デモ動画を表示' : 'アップロード動画を表示'}
+                  </button>
+                )}
+                
+                {/* 比較表示切り替えボタン */}
+                {userUploadedVideo && (
+                  <button 
+                    className={`px-3 py-2 rounded border ${
+                      showComparison 
+                        ? 'bg-green-100 border-green-400 text-green-800' 
+                        : 'bg-white border-gray-300'
+                    }`}
+                    onClick={toggleComparison}
+                  >
+                    {showComparison ? '比較表示中' : '比較表示'}
                   </button>
                 )}
                 
                 {/* 動画アップロードボタン */}
                 <button 
-                  className="px-3 py-2 rounded border border-gray-300 bg-white flex items-center space-x-1"
+                  className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-1"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload size={16} />
@@ -392,9 +443,14 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               </div>
             </div>
             
-            {/* モデルロード状態 */}
-            <div className="text-sm text-gray-500">
-              モデル状態: {isModelLoaded ? '読み込み完了' : '読み込み中...'}
+            {/* ステータス表示 */}
+            <div className="bg-gray-50 p-3 rounded-md">
+              <div className="text-sm text-gray-600 mb-1">
+                <strong>実行状況:</strong> {statusMessage}
+              </div>
+              <div className="text-xs text-gray-500">
+                姿勢検出モデル: {isModelLoaded ? '✓ 読み込み完了' : '⏳ 読み込み中...'}
+              </div>
             </div>
           </div>
         </div>
@@ -407,7 +463,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           {isVideoLoaded ? (
             <MetricsDisplay metrics={metrics} />
           ) : (
-            <p className="text-gray-500 text-center">動画を再生すると評価結果が表示されます</p>
+            <div className="text-center text-gray-500">
+              <p className="mb-2">動画を再生すると評価結果が表示されます</p>
+              {!isModelLoaded && (
+                <p className="text-sm">姿勢検出モデル読み込み中...</p>
+              )}
+            </div>
           )}
         </div>
       </div>
