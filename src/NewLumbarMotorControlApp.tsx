@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, Play, Pause } from 'lucide-react';
+import { Upload, Play, Pause, BarChart3, Activity } from 'lucide-react';
 
 // MediaPipe の型定義
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
@@ -7,6 +7,10 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
 // カスタムフックのインポート
 import { usePoseLandmarker } from './hooks/usePoseLandmarker';
 import { useMetrics } from './hooks/useMetrics';
+import { useTimeSeriesData } from './hooks/useTimeSeriesData';
+
+// コンポーネントのインポート
+import { LumbarAngleChartWithStats } from './components/LumbarAngleChart';
 
 // =================================================================
 // 1. タイプ定義
@@ -297,6 +301,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
   const [showComparison, setShowComparison] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('初期化中...');
+  const [showChart, setShowChart] = useState<boolean>(false);
   
   // ビデオ要素への参照
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -320,6 +325,25 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   
   // 指標の計算
   const metrics = useMetrics(result, testType);
+  
+  // 時系列データ管理
+  const {
+    timeSeriesData,
+    startRecording,
+    stopRecording,
+    addDataPoint,
+    clearData,
+    exportData,
+    getStatistics
+  } = useTimeSeriesData();
+  
+  // 腰椎角度の取得と記録
+  useEffect(() => {
+    const lumbarAngleMetric = metrics.find(m => m.label === '腰椎屈曲・伸展角度');
+    if (lumbarAngleMetric && timeSeriesData.isRecording) {
+      addDataPoint(lumbarAngleMetric.value);
+    }
+  }, [metrics, timeSeriesData.isRecording, addDataPoint]);
 
   const handleVideoUpload = useCallback((file: File) => {
     setStatusMessage('動画をアップロード中...');
@@ -390,6 +414,22 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const toggleComparison = useCallback(() => {
     setShowComparison(prev => !prev);
   }, []);
+  
+  // グラフ表示の切り替え
+  const toggleChart = useCallback(() => {
+    setShowChart(prev => !prev);
+  }, []);
+  
+  // 記録開始/停止の切り替え
+  const toggleRecording = useCallback(() => {
+    if (timeSeriesData.isRecording) {
+      stopRecording();
+      setStatusMessage('記録を停止しました');
+    } else {
+      startRecording();
+      setStatusMessage('角度の記録を開始しました');
+    }
+  }, [timeSeriesData.isRecording, startRecording, stopRecording]);
 
   // ファイルアップロード用の隠しInput参照
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -403,9 +443,13 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       <TestSelector currentTest={testType} onChange={setTestType} />
       
       {/* メインコンテンツ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid gap-6 ${
+        showChart 
+          ? 'grid-cols-1 xl:grid-cols-2' 
+          : 'grid-cols-1 lg:grid-cols-3'
+      }`}>
         {/* 左側: 動画と操作UIエリア */}
-        <div className="lg:col-span-2">
+        <div className={showChart ? '' : 'lg:col-span-2'}>
           <div className="bg-white rounded-lg shadow-md p-4">
             <h2 className="text-lg font-semibold mb-4">{TEST_LABELS[testType]}</h2>
             
@@ -508,6 +552,33 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   </button>
                 )}
                 
+                {/* グラフ表示切り替えボタン */}
+                <button 
+                  className={`px-3 py-2 rounded border flex items-center space-x-1 ${
+                    showChart 
+                      ? 'bg-purple-100 border-purple-400 text-purple-800' 
+                      : 'bg-white border-gray-300'
+                  }`}
+                  onClick={toggleChart}
+                >
+                  <BarChart3 size={16} />
+                  <span>{showChart ? 'グラフ表示中' : 'グラフ表示'}</span>
+                </button>
+                
+                {/* 記録開始/停止ボタン */}
+                <button 
+                  className={`px-3 py-2 rounded border flex items-center space-x-1 ${
+                    timeSeriesData.isRecording 
+                      ? 'bg-red-100 border-red-400 text-red-800' 
+                      : 'bg-blue-100 border-blue-400 text-blue-800'
+                  }`}
+                  onClick={toggleRecording}
+                  disabled={!isVideoLoaded}
+                >
+                  <Activity size={16} />
+                  <span>{timeSeriesData.isRecording ? '記録停止' : '記録開始'}</span>
+                </button>
+                
                 {/* 動画アップロードボタン */}
                 <button 
                   className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-1"
@@ -543,22 +614,45 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         </div>
         
         {/* 右側: 評価結果表示エリア */}
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <h2 className="text-lg font-semibold mb-4">評価結果</h2>
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <h2 className="text-lg font-semibold mb-4">評価結果</h2>
+            
+            {/* 評価指標の表示 */}
+            {isVideoLoaded ? (
+              <MetricsDisplay metrics={metrics} />
+            ) : (
+              <div className="text-center text-gray-500">
+                <p className="mb-2">動画を再生すると評価結果が表示されます</p>
+                {!isModelLoaded && (
+                  <p className="text-sm">姿勢検出モデル読み込み中...</p>
+                )}
+              </div>
+            )}
+          </div>
           
-          {/* 評価指標の表示 */}
-          {isVideoLoaded ? (
-            <MetricsDisplay metrics={metrics} />
-          ) : (
-            <div className="text-center text-gray-500">
-              <p className="mb-2">動画を再生すると評価結果が表示されます</p>
-              {!isModelLoaded && (
-                <p className="text-sm">姿勢検出モデル読み込み中...</p>
-              )}
-            </div>
+          {/* 時系列グラフ表示 */}
+          {showChart && (
+            <LumbarAngleChartWithStats
+              data={timeSeriesData.data}
+              isRecording={timeSeriesData.isRecording}
+              duration={timeSeriesData.duration}
+              statistics={getStatistics()}
+              onExport={exportData}
+              onClear={clearData}
+            />
           )}
         </div>
       </div>
+      
+      {/* フルスクリーングラフ表示（オプション） */}
+      {showChart && timeSeriesData.data.length === 0 && (
+        <div className="mt-6 bg-gray-50 p-8 rounded-lg text-center">
+          <BarChart3 size={48} className="mx-auto mb-4 text-gray-400" />
+          <h3 className="text-lg font-medium text-gray-600 mb-2">時系列グラフ</h3>
+          <p className="text-gray-500">記録ボタンをクリックして腰椎角度の記録を開始してください</p>
+        </div>
+      )}
     </div>
   );
 };
