@@ -164,14 +164,101 @@ const PoseVisualizer: React.FC<{
   );
 };
 
+// 腰椎角度ビジュアライザー
+const LumbarAngleVisualizer: React.FC<{ angle: number }> = ({ angle }) => {
+  const maxAngle = 90; // 最大表示角度
+  const normalizedAngle = Math.max(-maxAngle, Math.min(maxAngle, angle));
+  const rotationAngle = normalizedAngle;
+  
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+      <h3 className="text-lg font-medium mb-3 text-center">腰椎角度リアルタイム表示</h3>
+      <div className="flex items-center justify-center">
+        <div className="relative w-32 h-32">
+          {/* 背景円 */}
+          <div className="absolute inset-0 border-4 border-gray-200 rounded-full"></div>
+          
+          {/* 角度範囲表示 */}
+          <div className="absolute inset-2 border-2 border-gray-100 rounded-full"></div>
+          
+          {/* 0度マーカー */}
+          <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-gray-400 transform -translate-x-0.5"></div>
+          
+          {/* 30度マーカー（左右） */}
+          <div 
+            className="absolute top-2 left-1/2 w-0.5 h-3 bg-yellow-400 transform -translate-x-0.5"
+            style={{ transform: 'translateX(-50%) rotate(30deg)', transformOrigin: '50% 60px' }}
+          ></div>
+          <div 
+            className="absolute top-2 left-1/2 w-0.5 h-3 bg-yellow-400 transform -translate-x-0.5"
+            style={{ transform: 'translateX(-50%) rotate(-30deg)', transformOrigin: '50% 60px' }}
+          ></div>
+          
+          {/* 60度マーカー（左右） */}
+          <div 
+            className="absolute top-2 left-1/2 w-0.5 h-3 bg-red-400 transform -translate-x-0.5"
+            style={{ transform: 'translateX(-50%) rotate(60deg)', transformOrigin: '50% 60px' }}
+          ></div>
+          <div 
+            className="absolute top-2 left-1/2 w-0.5 h-3 bg-red-400 transform -translate-x-0.5"
+            style={{ transform: 'translateX(-50%) rotate(-60deg)', transformOrigin: '50% 60px' }}
+          ></div>
+          
+          {/* 中心点 */}
+          <div className="absolute top-1/2 left-1/2 w-2 h-2 bg-gray-600 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+          
+          {/* 角度インジケーター */}
+          <div 
+            className={`absolute top-1/2 left-1/2 w-0.5 origin-bottom transform -translate-x-0.5 transition-transform duration-200 ${
+              Math.abs(angle) > 60 ? 'bg-red-500' :
+              Math.abs(angle) > 30 ? 'bg-yellow-500' :
+              'bg-green-500'
+            }`}
+            style={{ 
+              height: '50px',
+              transform: `translateX(-50%) translateY(-100%) rotate(${rotationAngle}deg)`,
+              transformOrigin: 'bottom center'
+            }}
+          ></div>
+        </div>
+        
+        {/* 数値表示 */}
+        <div className="ml-6">
+          <div className={`text-3xl font-bold ${
+            Math.abs(angle) > 60 ? 'text-red-500' :
+            Math.abs(angle) > 30 ? 'text-yellow-500' :
+            'text-green-500'
+          }`}>
+            {angle.toFixed(1)}°
+          </div>
+          <div className="text-sm text-gray-600 mt-1">
+            {angle > 30 ? '前屈' : angle < -30 ? '後屈' : '正常'}
+          </div>
+          <div className="text-xs text-gray-500 mt-2">
+            正常範囲: -30° ～ +30°
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // 指標表示
 const MetricsDisplay: React.FC<{ metrics: Metric[] }> = ({ metrics }) => {
   if (!metrics || metrics.length === 0) {
     return <p className="text-gray-500 text-center">指標の計算中...</p>;
   }
 
+  // 腰椎角度データを抽出
+  const lumbarAngleMetric = metrics.find(m => m.label === '腰椎屈曲・伸展角度');
+
   return (
     <div>
+      {/* 腰椎角度の視覚的表示 */}
+      {lumbarAngleMetric && (
+        <LumbarAngleVisualizer angle={lumbarAngleMetric.value} />
+      )}
+      
       <h3 className="text-lg font-medium mb-3">評価結果</h3>
       <div className="space-y-4">
         {metrics.map((metric, index) => (

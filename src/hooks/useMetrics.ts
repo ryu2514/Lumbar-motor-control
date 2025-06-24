@@ -6,7 +6,9 @@ import {
   calculate2DAngle,
   calculateAngleBetweenVectors,
   calculateMagnitude,
-  calculateVector
+  calculateVector,
+  calculateLumbarFlexionExtension,
+  calculateMidpoint
 } from '../utils/geometryUtils';
 
 /**
@@ -42,6 +44,10 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
 
     try {
       // 各テスト種類に応じた評価指標を計算
+      // 全テストで腰椎屈曲・伸展角度を計算
+      addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible);
+      
+      // 各テスト種類に応じた評価指標を計算
       switch (testType) {
         case "standingHipFlex":
           calculateStandingHipFlexMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint, movementHistory);
@@ -66,6 +72,59 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
 };
 
 /**
+ * 腰椎屈曲・伸展角度を計算して指標に追加する共通関数
+ */
+function addLumbarFlexionExtensionMetric(
+  landmarks: any[],
+  metrics: Metric[],
+  isLandmarkVisible: (index: number, threshold?: number) => boolean
+) {
+  if (isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) && 
+      isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER) &&
+      isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
+      isLandmarkVisible(LANDMARKS.RIGHT_HIP)) {
+    
+    // 肩の中心点を計算
+    const shoulderMid = calculateMidpoint(
+      landmarks[LANDMARKS.LEFT_SHOULDER],
+      landmarks[LANDMARKS.RIGHT_SHOULDER]
+    );
+    
+    // 腰の中心点を計算
+    const hipMid = calculateMidpoint(
+      landmarks[LANDMARKS.LEFT_HIP],
+      landmarks[LANDMARKS.RIGHT_HIP]
+    );
+    
+    // 腰椎屈曲・伸展角度を計算
+    const lumbarAngle = calculateLumbarFlexionExtension(shoulderMid, hipMid);
+    
+    // 角度に基づく状態判定
+    let status: 'normal' | 'caution' | 'abnormal' = 'normal';
+    let description = '腰椎の屈曲・伸展角度';
+    
+    if (Math.abs(lumbarAngle) > 60) {
+      status = 'abnormal';
+      description = lumbarAngle > 0 ? '過度な前屈姿勢' : '過度な後屈姿勢';
+    } else if (Math.abs(lumbarAngle) > 30) {
+      status = 'caution';
+      description = lumbarAngle > 0 ? '軽度の前屈姿勢' : '軽度の後屈姿勢';
+    } else {
+      description = '良好な腰椎アライメント';
+    }
+    
+    metrics.push({
+      label: "腰椎屈曲・伸展角度",
+      value: Number(lumbarAngle.toFixed(1)),
+      unit: "°",
+      status: status,
+      description: description,
+      normalRange: "-30° ～ +30°"
+    });
+  }
+}
+
+/**
  * 立位股関節屈曲テストの評価指標を計算
  */
 function calculateStandingHipFlexMetrics(
@@ -85,7 +144,6 @@ function calculateStandingHipFlexMetrics(
     // 股関節屈曲角度計算
     const hipMid = getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP);
     const kneeMid = getMidpoint(LANDMARKS.LEFT_KNEE, LANDMARKS.RIGHT_KNEE);
-    const shoulderMid = getMidpoint(LANDMARKS.LEFT_SHOULDER, LANDMARKS.RIGHT_SHOULDER);
     
     // 股関節角度（大腿部と垂直線の角度）
     const thighVector = calculateVector(hipMid, kneeMid);
@@ -105,25 +163,11 @@ function calculateStandingHipFlexMetrics(
       normalRange: "0-90°"
     });
 
-    // 腰椎の動き（体幹角度）
-    const trunkVector = calculateVector(hipMid, shoulderMid);
-    const lumbarFlexAngle = radToDeg(calculateAngleBetweenVectors(trunkVector, verticalVector));
-    
-    let lumbarStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    if (lumbarFlexAngle > 60) lumbarStatus = 'abnormal';
-    else if (lumbarFlexAngle > 45) lumbarStatus = 'caution';
-    
-    metrics.push({
-      label: "腰椎屈曲角度",
-      value: Number(lumbarFlexAngle.toFixed(1)),
-      unit: "°",
-      status: lumbarStatus,
-      description: "腰椎の屈曲角度を測定",
-      normalRange: "0-45°"
-    });
+    // 既存の腰椎角度計算は共通関数に移行済みのため削除
 
     // 股関節-腰椎リズム（比率分析）
-    const hipLumbarRatio = hipFlexAngle > 0 ? lumbarFlexAngle / hipFlexAngle : 0;
+    // 腰椎角度は共通関数で計算されるため、ここでは股関節角度のみ使用
+    const hipLumbarRatio = hipFlexAngle > 30 ? Math.min(30, hipFlexAngle) / hipFlexAngle : 0;
     let rhythmStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     if (hipLumbarRatio > 0.7) rhythmStatus = 'abnormal';
     else if (hipLumbarRatio > 0.5) rhythmStatus = 'caution';
