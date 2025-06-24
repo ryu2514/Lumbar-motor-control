@@ -339,12 +339,21 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   
   // 動画再生状態に応じた自動記録制御
   useEffect(() => {
+    console.log('Auto recording check:', { 
+      isPlaying, 
+      isVideoLoaded, 
+      isModelLoaded, 
+      isRecording: timeSeriesData.isRecording 
+    });
+    
     if (isPlaying && isVideoLoaded && isModelLoaded && !timeSeriesData.isRecording) {
       // 動画が再生開始されたら自動的に記録開始
+      console.log('Starting auto recording...');
       startRecording();
       setStatusMessage('動画再生開始 - 角度記録を自動開始しました');
     } else if (!isPlaying && timeSeriesData.isRecording) {
       // 動画が停止されたら記録も停止
+      console.log('Stopping auto recording...');
       stopRecording();
       setStatusMessage('動画停止 - 角度記録を停止しました');
     }
@@ -411,15 +420,38 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   }, []);
 
   // 再生/一時停止トグル
-  const togglePlayPause = useCallback(() => {
-    if (!videoRef.current) return;
-    
-    if (isPlaying) {
-      videoRef.current.pause();
-    } else {
-      videoRef.current.play();
+  const togglePlayPause = useCallback(async () => {
+    if (!videoRef.current) {
+      console.log('Video ref is null');
+      return;
     }
-    setIsPlaying(!isPlaying);
+    
+    const video = videoRef.current;
+    console.log('Video state before action:', {
+      paused: video.paused,
+      currentTime: video.currentTime,
+      duration: video.duration,
+      readyState: video.readyState,
+      src: video.src
+    });
+    
+    try {
+      if (isPlaying) {
+        video.pause();
+        console.log('Pause command sent');
+        setStatusMessage('動画を一時停止しました');
+      } else {
+        console.log('Play command sending...');
+        await video.play();
+        console.log('Play command completed');
+        setStatusMessage('動画を再生開始しました');
+      }
+    } catch (error) {
+      console.error('動画再生エラー:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setStatusMessage(`動画再生エラー: ${errorMessage}`);
+      setIsPlaying(false);
+    }
   }, [isPlaying]);
 
   // 動画のロード完了時の処理
@@ -484,8 +516,22 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   src={videoUrl}
                   className="w-full h-full object-contain"
                   onLoadedData={handleVideoLoaded}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
+                  onPlay={() => {
+                    console.log('Video play event triggered');
+                    setIsPlaying(true);
+                  }}
+                  onPause={() => {
+                    console.log('Video pause event triggered');
+                    setIsPlaying(false);
+                  }}
+                  onEnded={() => {
+                    console.log('Video ended event triggered');
+                    setIsPlaying(false);
+                  }}
+                  onError={(e) => {
+                    console.error('Video error:', e);
+                    setStatusMessage('動画の読み込みまたは再生でエラーが発生しました');
+                  }}
                 />
                 
                 {/* ポーズ描画オーバーレイ */}
