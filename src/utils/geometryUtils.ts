@@ -153,7 +153,7 @@ export const calculateFilteredLumbarAngle = (
   const filteredAngle = angleFilter.filter(rawAngle);
   
   // デバッグ用ログ（開発時のみ）
-  if (Math.random() < 1.0) { // 100%の確率でログ出力（修正確認用）
+  if (Math.random() < 0.02) { // 2%の確率でログ出力（通常運用）
     // 体幹ベクトルも表示
     const torsoVector = {
       x: shoulderMid.x - hipMid.x,
