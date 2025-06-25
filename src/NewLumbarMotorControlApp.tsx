@@ -176,7 +176,7 @@ const LumbarAngleVisualizer: React.FC<{ angle: number }> = ({ angle }) => {
   
   return (
     <div className="bg-white p-4 rounded-lg shadow-md mb-4">
-      <h3 className="text-lg font-medium mb-3 text-center">腰椎角度リアルタイム表示</h3>
+      <h3 className="text-lg font-medium mb-3 text-center">胸腰椎角度リアルタイム表示</h3>
       <div className="flex items-center justify-center">
         <div className="relative w-32 h-32">
           {/* 背景円 */}
@@ -239,7 +239,8 @@ const LumbarAngleVisualizer: React.FC<{ angle: number }> = ({ angle }) => {
             {angle > 30 ? '腰椎屈曲' : angle < -20 ? '腰椎伸展' : '正常範囲'}
           </div>
           <div className="text-xs text-gray-500 mt-2">
-            日整会基準: 屈曲45° / 伸展30°
+            日整会基準: 屈曲45° / 伸展30°<br/>
+            ※胸腰椎一括測定・誤差あり
           </div>
         </div>
       </div>
@@ -253,12 +254,12 @@ const MetricsDisplay: React.FC<{ metrics: Metric[] }> = ({ metrics }) => {
     return <p className="text-gray-500 text-center">指標の計算中...</p>;
   }
 
-  // 腰椎角度データを抽出
-  const lumbarAngleMetric = metrics.find(m => m.label === '腰椎屈曲・伸展角度');
+  // 胸腰椎角度データを抽出
+  const lumbarAngleMetric = metrics.find(m => m.label === '胸腰椎屈曲・伸展角度');
 
   return (
     <div>
-      {/* 腰椎角度の視覚的表示 */}
+      {/* 胸腰椎角度の視覚的表示 */}
       {lumbarAngleMetric && (
         <LumbarAngleVisualizer angle={lumbarAngleMetric.value} />
       )}
@@ -359,9 +360,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, [isPlaying, isVideoLoaded, isModelLoaded]);
 
-  // 腰椎角度の取得と記録
+  // 胸腰椎角度の取得と記録
   useEffect(() => {
-    const lumbarAngleMetric = metrics.find(m => m.label === '腰椎屈曲・伸展角度');
+    const lumbarAngleMetric = metrics.find(m => m.label === '胸腰椎屈曲・伸展角度');
     if (lumbarAngleMetric && timeSeriesData.isRecording) {
       addDataPoint(lumbarAngleMetric.value);
     }

@@ -87,7 +87,7 @@ export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
   return (
     <div className="bg-white p-4 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">腰椎角度 時系列グラフ</h3>
+        <h3 className="text-lg font-medium">胸腰椎角度 時系列グラフ</h3>
         <div className="flex items-center space-x-4">
           <div className={`flex items-center ${isRecording ? 'text-red-500' : 'text-gray-500'}`}>
             <div className={`w-2 h-2 rounded-full mr-1 ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`}></div>
@@ -151,6 +151,11 @@ export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
           <div className="w-3 h-0.5 bg-red-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
           <span>異常範囲 (屈曲45°/伸展30°)</span>
         </div>
+      </div>
+      
+      {/* 注意事項 */}
+      <div className="mt-3 p-2 bg-yellow-50 border-l-4 border-yellow-400 text-xs text-gray-600">
+        <strong>注意:</strong> 胸腰椎一括測定のため誤差が生じやすく、骨盤前傾時は腰椎伸展として検出される傾向があります。
       </div>
     </div>
   );

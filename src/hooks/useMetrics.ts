@@ -118,12 +118,12 @@ function addLumbarFlexionExtensionMetric(
     }
     
     metrics.push({
-      label: "腰椎屈曲・伸展角度",
+      label: "胸腰椎屈曲・伸展角度",
       value: Number(lumbarAngle.toFixed(1)),
       unit: "°",
       status: status,
       description: description,
-      normalRange: "屈曲45° / 伸展30°（日整会基準）"
+      normalRange: "屈曲45° / 伸展30°（胸腰椎一括測定・日整会基準）"
     });
   }
 }

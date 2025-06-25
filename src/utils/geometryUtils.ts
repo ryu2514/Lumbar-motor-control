@@ -43,11 +43,17 @@ export const calculate2DAngle = (p1: any, vertex: any, p2: any) => {
 };
 
 /**
- * 腰椎屈曲・伸展角度を計算（日本整形外科学会基準対応）
+ * 胸腰椎屈曲・伸展角度を計算（日本整形外科学会基準対応）
  * @param shoulderMid 肩の中心点
  * @param hipMid 腰の中心点  
- * @returns 腰椎角度（度）- 正の値: 屈曲（前屈）、負の値: 伸展（後屈）
- * 日本整形外科学会基準: 腰椎屈曲45°/伸展30°
+ * @returns 胸腰椎角度（度）- 正の値: 屈曲（前屈）、負の値: 伸展（後屈）
+ * 
+ * 注意事項:
+ * - 胸腰椎一括測定のため、純粋な腰椎単独の動きではない
+ * - 骨盤前傾時は腰椎伸展として検出される傾向がある
+ * - カメラ角度や姿勢により誤差が生じやすい
+ * 
+ * 日本整形外科学会基準: 胸腰椎屈曲45°/伸展30°
  */
 export const calculateLumbarFlexionExtension = (
   shoulderMid: { x: number; y: number; z: number },
@@ -66,10 +72,21 @@ export const calculateLumbarFlexionExtension = (
   const angle = Math.atan2(cross, dot);
   const angleInDegrees = radToDeg(angle);
   
-  // 日本整形外科学会基準に合わせたスケーリング調整
-  // 計算された角度を実際の腰椎可動域にマッピング
-  // 前屈（正の値）: 0°～45°、後屈（負の値）: 0°～-30°
-  const scaledAngle = angleInDegrees * 0.75; // スケーリング係数で調整
+  // 骨盤前傾補正: 骨盤が前傾している場合は腰椎伸展として検出される
+  // Z軸の正の方向（前方）への移動を屈曲、負の方向（後方）を伸展とする
+  let correctedAngle = angleInDegrees;
+  
+  // 骨盤前傾の影響を考慮した補正（腰部の前後位置関係から判定）
+  if (torsoVector.z > 0.1) {
+    // 明らかに前屈している場合
+    correctedAngle = Math.abs(angleInDegrees);
+  } else if (torsoVector.z < -0.05) {
+    // 骨盤前傾による腰椎伸展の可能性
+    correctedAngle = -Math.abs(angleInDegrees);
+  }
+  
+  // 胸腰椎一括測定に合わせたスケーリング調整
+  const scaledAngle = correctedAngle * 0.8; // 骨盤前傾補正を含むスケーリング
   
   return scaledAngle;
 };
