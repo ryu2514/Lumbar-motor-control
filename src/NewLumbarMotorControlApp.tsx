@@ -9,6 +9,9 @@ import { usePoseLandmarker } from './hooks/usePoseLandmarker';
 import { useMetrics } from './hooks/useMetrics';
 import { useTimeSeriesData } from './hooks/useTimeSeriesData';
 
+// ユーティリティのインポート
+import { resetAngleFilter } from './utils/geometryUtils';
+
 // コンポーネントのインポート
 import { LumbarAngleChartWithStats } from './components/LumbarAngleChart';
 
@@ -406,6 +409,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setIsVideoLoaded(false);
     setIsPlaying(false);
     setStatusMessage('新しい動画を読み込み中...');
+    
+    // 角度フィルターをリセット
+    resetAngleFilter();
     
     // ログ出力
     console.log('テスト種類変更:', testType, useUploadedVideo ? 'アップロード動画表示' : 'デモ動画表示');

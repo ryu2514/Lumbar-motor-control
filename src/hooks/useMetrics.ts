@@ -7,8 +7,9 @@ import {
   calculateAngleBetweenVectors,
   calculateMagnitude,
   calculateVector,
-  calculateLumbarFlexionExtension,
-  calculateMidpoint
+  calculateFilteredLumbarAngle,
+  calculateMidpoint,
+  resetAngleFilter
 } from '../utils/geometryUtils';
 
 /**
@@ -17,8 +18,15 @@ import {
 export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestType): Metric[] => {
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [movementHistory, setMovementHistory] = useState<any[]>([]);
+  const [previousTestType, setPreviousTestType] = useState<TestType | null>(null);
 
   useEffect(() => {
+    // テスト種類が変更された場合はフィルターをリセット
+    if (previousTestType !== null && previousTestType !== testType) {
+      resetAngleFilter();
+    }
+    setPreviousTestType(testType);
+
     if (!result || !result.worldLandmarks || result.worldLandmarks.length === 0) {
       setMetrics([]);
       return;
@@ -96,8 +104,8 @@ function addLumbarFlexionExtensionMetric(
       landmarks[LANDMARKS.RIGHT_HIP]
     );
     
-    // 腰椎屈曲・伸展角度を計算
-    const lumbarAngle = calculateLumbarFlexionExtension(shoulderMid, hipMid);
+    // 胸腰椎屈曲・伸展角度を計算（フィルター適用）
+    const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
     
     // 日本整形外科学会基準による状態判定
     let status: 'normal' | 'caution' | 'abnormal' = 'normal';
