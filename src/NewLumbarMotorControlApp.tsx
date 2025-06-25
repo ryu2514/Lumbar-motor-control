@@ -388,10 +388,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // テスト種類が変更されたときの動画切り替え処理
   useEffect(() => {
-    // テスト種類変更時は記録を停止
+    // 記録中の場合は停止
     if (timeSeriesData.isRecording) {
       stopRecording();
-      setStatusMessage('テスト切り替えのため記録を停止しました');
     }
     
     if (useUploadedVideo && userUploadedVideo) {
@@ -401,6 +400,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       // 非アップロード時はテスト種類に応じたデモ動画を表示
       setVideoUrl(DEMO_VIDEOS[testType]);
     }
+    
     // 動画切り替え時の状態リセット
     setIsVideoLoaded(false);
     setIsPlaying(false);
@@ -416,13 +416,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, [testType, useUploadedVideo, userUploadedVideo, timeSeriesData.isRecording, stopRecording]);
 
-  // 初期化時にデフォルトのデモ動画をセットする
-  useEffect(() => {
-    // 初期値の一回セットのみ
-    const defaultVideo = DEMO_VIDEOS.standingHipFlex;
-    setVideoUrl(defaultVideo);
-    console.log(`デフォルト動画のセット: ${defaultVideo}`);
-  }, []);
+  // 初期化は状態の初期値で既に設定済みなので、このuseEffectは削除
 
   // デモ動画とアップロード動画の切り替え
   const toggleVideoSource = useCallback(() => {
