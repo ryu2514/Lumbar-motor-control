@@ -62,21 +62,20 @@ export const calculateLumbarFlexionExtension = (
   // MediaPipe座標系での前後傾角度計算
   // 重要：MediaPipeのZ軸の向きを確認して修正
   
-  // 前屈と後屈の判定基準を明確化
-  // 前屈時: 肩のZ座標 > 腰のZ座標 （カメラに近づく）
-  // 後屈時: 肩のZ座標 < 腰のZ座標 （カメラから離れる）
+  // 前屈と後屈の判定基準を修正（デバッグログに基づく）
+  // 実際のログから判明：前屈時 Z差=-0.070 (肩が腰よりカメラから遠い)
+  // MediaPipe Z軸: 正方向 = カメラから遠ざかる方向
   
   const shoulderToHipZ = shoulderMid.z - hipMid.z; // Z方向の差
   const shoulderToHipY = shoulderMid.y - hipMid.y; // Y方向の差（負が上方向）
   
-  // 体幹角度を計算（垂直線からの角度）
-  // atan2(前後方向, 上下方向)
-  let lumbarAngle = Math.atan2(shoulderToHipZ, -shoulderToHipY); // Y軸を反転
+  // 角度計算を修正：Z軸の符号を反転して正しい前屈/後屈を検出
+  // 前屈時: shoulderToHipZ < 0 → 正の角度にする
+  // 後屈時: shoulderToHipZ > 0 → 負の角度にする
+  let lumbarAngle = Math.atan2(-shoulderToHipZ, -shoulderToHipY); // Z軸とY軸両方を反転
   lumbarAngle = radToDeg(lumbarAngle);
   
-  // MediaPipeのZ軸方向を確認
-  // もし逆向きであれば角度を反転する必要がある
-  // 実際のテストでZ座標の変化を確認して調整
+  // これで前屈時に正の角度、後屈時に負の角度になるはず
   
   // ノイズフィルタリング
   if (Math.abs(lumbarAngle) < 3) {
@@ -154,7 +153,7 @@ export const calculateFilteredLumbarAngle = (
   const filteredAngle = angleFilter.filter(rawAngle);
   
   // デバッグ用ログ（開発時のみ）
-  if (Math.random() < 0.3) { // 30%の確率でログ出力（デバッグ用）
+  if (Math.random() < 1.0) { // 100%の確率でログ出力（修正確認用）
     // 体幹ベクトルも表示
     const torsoVector = {
       x: shoulderMid.x - hipMid.x,
