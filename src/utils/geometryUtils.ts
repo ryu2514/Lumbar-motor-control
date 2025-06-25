@@ -62,34 +62,39 @@ export const calculateLumbarFlexionExtension = (
   // 体幹ベクトル（腰から肩へ）
   const torsoVector = calculateVector(hipMid, shoulderMid);
   
-  // Y-Z平面での角度計算（安定性を向上）
-  const torsoAngle = Math.atan2(torsoVector.z, -torsoVector.y);
-  const angleInDegrees = radToDeg(torsoAngle);
+  // 前後方向の角度を計算（Y-Z平面での投影）
+  // Z軸正方向 = 前方、Y軸負方向 = 上方
+  const forwardTilt = Math.atan2(torsoVector.z, -torsoVector.y);
+  let angleInDegrees = radToDeg(forwardTilt);
   
-  // 角度の正規化と安定化
-  let normalizedAngle = angleInDegrees;
-  
-  // 角度の範囲を-90°から+90°に制限
-  if (normalizedAngle > 90) {
-    normalizedAngle = 180 - normalizedAngle;
-  } else if (normalizedAngle < -90) {
-    normalizedAngle = -180 - normalizedAngle;
+  // 角度を-180°～180°から-90°～90°の範囲に正規化
+  if (angleInDegrees > 90) {
+    angleInDegrees = 180 - angleInDegrees;
+  } else if (angleInDegrees < -90) {
+    angleInDegrees = -180 - angleInDegrees;
   }
   
-  // 小さな変動をフィルタリング（ノイズ除去）
-  if (Math.abs(normalizedAngle) < 2) {
-    normalizedAngle = 0;
+  // 前屈/後屈の判定を明確にする
+  // 正の値: 前屈（屈曲）、負の値: 後屈（伸展）
+  let lumbarAngle = angleInDegrees;
+  
+  // ノイズフィルタリング
+  if (Math.abs(lumbarAngle) < 3) {
+    lumbarAngle = 0; // 小さな動きは中立とする
   }
   
-  // 胸腰椎測定に適したスケーリング
-  // 前屈（正の値）: 0°～45°、後屈（負の値）: 0°～-30°
-  const scalingFactor = normalizedAngle > 0 ? 0.9 : 1.2; // 屈曲/伸展で異なるスケーリング
-  const scaledAngle = normalizedAngle * scalingFactor;
+  // 現実的な腰椎可動域にスケーリング
+  // 前屈時は0.8倍、後屈時は1.0倍で調整
+  if (lumbarAngle > 0) {
+    lumbarAngle *= 0.8; // 前屈スケーリング
+  } else {
+    lumbarAngle *= 1.0; // 後屈スケーリング
+  }
   
-  // 最終的な角度制限
-  const finalAngle = Math.max(-45, Math.min(60, scaledAngle));
+  // 最大可動域の制限（前屈60°、後屈40°）
+  lumbarAngle = Math.max(-40, Math.min(60, lumbarAngle));
   
-  return finalAngle;
+  return lumbarAngle;
 };
 
 /**
@@ -109,7 +114,7 @@ export const calculateMidpoint = (
  */
 class AngleFilter {
   private history: number[] = [];
-  private maxHistory = 5;
+  private maxHistory = 3; // 履歴を3点に削減してより応答性を向上
 
   filter(angle: number): number {
     this.history.push(angle);
@@ -117,9 +122,14 @@ class AngleFilter {
       this.history.shift();
     }
     
-    // 移動平均を計算
-    const avg = this.history.reduce((sum, val) => sum + val, 0) / this.history.length;
-    return avg;
+    // 重み付き移動平均を計算（最新の値により大きな重みを付与）
+    if (this.history.length === 1) {
+      return this.history[0];
+    } else if (this.history.length === 2) {
+      return (this.history[0] * 0.3 + this.history[1] * 0.7);
+    } else {
+      return (this.history[0] * 0.2 + this.history[1] * 0.3 + this.history[2] * 0.5);
+    }
   }
 
   reset(): void {
@@ -141,7 +151,19 @@ export const calculateFilteredLumbarAngle = (
   hipMid: { x: number; y: number; z: number }
 ): number => {
   const rawAngle = calculateLumbarFlexionExtension(shoulderMid, hipMid);
-  return angleFilter.filter(rawAngle);
+  const filteredAngle = angleFilter.filter(rawAngle);
+  
+  // デバッグ用ログ（開発時のみ）
+  if (Math.random() < 0.1) { // 10%の確率でログ出力
+    console.log('角度計算詳細:', {
+      shoulderMid: { y: shoulderMid.y.toFixed(3), z: shoulderMid.z.toFixed(3) },
+      hipMid: { y: hipMid.y.toFixed(3), z: hipMid.z.toFixed(3) },
+      rawAngle: rawAngle.toFixed(1),
+      filteredAngle: filteredAngle.toFixed(1)
+    });
+  }
+  
+  return filteredAngle;
 };
 
 /**
