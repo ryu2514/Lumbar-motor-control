@@ -59,24 +59,24 @@ export const calculateLumbarFlexionExtension = (
   shoulderMid: { x: number; y: number; z: number },
   hipMid: { x: number; y: number; z: number }
 ) => {
-  // 体幹ベクトル（腰から肩へ）
-  const torsoVector = calculateVector(hipMid, shoulderMid);
+  // MediaPipe座標系での前後傾角度計算
+  // 重要：MediaPipeのZ軸の向きを確認して修正
   
-  // 前後方向の角度を計算（Y-Z平面での投影）
-  // Z軸正方向 = 前方、Y軸負方向 = 上方
-  const forwardTilt = Math.atan2(torsoVector.z, -torsoVector.y);
-  let angleInDegrees = radToDeg(forwardTilt);
+  // 前屈と後屈の判定基準を明確化
+  // 前屈時: 肩のZ座標 > 腰のZ座標 （カメラに近づく）
+  // 後屈時: 肩のZ座標 < 腰のZ座標 （カメラから離れる）
   
-  // 角度を-180°～180°から-90°～90°の範囲に正規化
-  if (angleInDegrees > 90) {
-    angleInDegrees = 180 - angleInDegrees;
-  } else if (angleInDegrees < -90) {
-    angleInDegrees = -180 - angleInDegrees;
-  }
+  const shoulderToHipZ = shoulderMid.z - hipMid.z; // Z方向の差
+  const shoulderToHipY = shoulderMid.y - hipMid.y; // Y方向の差（負が上方向）
   
-  // 前屈/後屈の判定を明確にする
-  // 正の値: 前屈（屈曲）、負の値: 後屈（伸展）
-  let lumbarAngle = angleInDegrees;
+  // 体幹角度を計算（垂直線からの角度）
+  // atan2(前後方向, 上下方向)
+  let lumbarAngle = Math.atan2(shoulderToHipZ, -shoulderToHipY); // Y軸を反転
+  lumbarAngle = radToDeg(lumbarAngle);
+  
+  // MediaPipeのZ軸方向を確認
+  // もし逆向きであれば角度を反転する必要がある
+  // 実際のテストでZ座標の変化を確認して調整
   
   // ノイズフィルタリング
   if (Math.abs(lumbarAngle) < 3) {
@@ -154,12 +154,23 @@ export const calculateFilteredLumbarAngle = (
   const filteredAngle = angleFilter.filter(rawAngle);
   
   // デバッグ用ログ（開発時のみ）
-  if (Math.random() < 0.1) { // 10%の確率でログ出力
-    console.log('角度計算詳細:', {
-      shoulderMid: { y: shoulderMid.y.toFixed(3), z: shoulderMid.z.toFixed(3) },
-      hipMid: { y: hipMid.y.toFixed(3), z: hipMid.z.toFixed(3) },
-      rawAngle: rawAngle.toFixed(1),
-      filteredAngle: filteredAngle.toFixed(1)
+  if (Math.random() < 0.3) { // 30%の確率でログ出力（デバッグ用）
+    // 体幹ベクトルも表示
+    const torsoVector = {
+      x: shoulderMid.x - hipMid.x,
+      y: shoulderMid.y - hipMid.y,
+      z: shoulderMid.z - hipMid.z
+    };
+    
+    console.log('🔍 腰椎角度計算詳細:', {
+      肩座標: { y: shoulderMid.y.toFixed(3), z: shoulderMid.z.toFixed(3) },
+      腰座標: { y: hipMid.y.toFixed(3), z: hipMid.z.toFixed(3) },
+      'Z差(肩-腰)': (shoulderMid.z - hipMid.z).toFixed(3),
+      'Y差(肩-腰)': (shoulderMid.y - hipMid.y).toFixed(3),
+      体幹ベクトル: { y: torsoVector.y.toFixed(3), z: torsoVector.z.toFixed(3) },
+      生角度: rawAngle.toFixed(1) + '°',
+      フィルター後: filteredAngle.toFixed(1) + '°',
+      判定: filteredAngle > 5 ? '🔴屈曲' : filteredAngle < -5 ? '🔵伸展' : '⚪中立'
     });
   }
   
