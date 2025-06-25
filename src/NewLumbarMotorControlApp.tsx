@@ -532,7 +532,13 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 <video
                   ref={videoRef}
                   src={videoUrl}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain pointer-events-none"
+                  playsInline
+                  disablePictureInPicture
+                  controlsList="nodownload nofullscreen noremoteplayback"
+                  webkit-playsinline="true"
+                  x5-playsinline="true"
+                  style={{ pointerEvents: 'none' }}
                   onLoadStart={() => {
                     console.log('Video load start event');
                     setIsVideoLoaded(false);
@@ -594,6 +600,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     src={DEMO_VIDEOS[testType]}
                     className="w-full h-full object-contain"
                     controls
+                    playsInline
+                    disablePictureInPicture
+                    controlsList="nodownload nofullscreen noremoteplayback"
                   />
                 </div>
               )}
@@ -601,20 +610,20 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             
             {/* 動画コントロールエリア */}
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              {/* 再生/一時停止ボタン */}
+              {/* 再生/一時停止ボタン - スマホ対応でサイズアップ */}
               <button 
-                className="flex items-center space-x-1 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+                className="flex items-center space-x-2 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 text-lg font-medium min-h-[48px]"
                 onClick={togglePlayPause}
                 disabled={!isVideoLoaded}
               >
                 {isPlaying ? (
                   <>
-                    <Pause size={16} />
+                    <Pause size={20} />
                     <span>一時停止</span>
                   </>
                 ) : (
                   <>
-                    <Play size={16} />
+                    <Play size={20} />
                     <span>再生</span>
                   </>
                 )}
@@ -624,7 +633,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 {/* デモ動画/アップロード動画切り替えボタン */}
                 {userUploadedVideo && (
                   <button 
-                    className={`px-3 py-2 rounded border ${
+                    className={`px-4 py-3 rounded-lg border min-h-[48px] ${
                       useUploadedVideo 
                         ? 'bg-gray-100 border-gray-400' 
                         : 'bg-white border-gray-300'
@@ -638,7 +647,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 {/* 比較表示切り替えボタン */}
                 {userUploadedVideo && (
                   <button 
-                    className={`px-3 py-2 rounded border ${
+                    className={`px-4 py-3 rounded-lg border min-h-[48px] ${
                       showComparison 
                         ? 'bg-green-100 border-green-400 text-green-800' 
                         : 'bg-white border-gray-300'
@@ -651,20 +660,20 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 
                 {/* グラフ表示切り替えボタン */}
                 <button 
-                  className={`px-3 py-2 rounded border flex items-center space-x-1 ${
+                  className={`px-4 py-3 rounded-lg border flex items-center space-x-2 min-h-[48px] ${
                     showChart 
                       ? 'bg-purple-100 border-purple-400 text-purple-800' 
                       : 'bg-white border-gray-300'
                   }`}
                   onClick={toggleChart}
                 >
-                  <BarChart3 size={16} />
+                  <BarChart3 size={18} />
                   <span>{showChart ? 'グラフ表示中' : 'グラフ表示'}</span>
                 </button>
                 
                 {/* 記録開始/停止ボタン */}
                 <button 
-                  className={`px-3 py-2 rounded border flex items-center space-x-1 ${
+                  className={`px-4 py-3 rounded-lg border flex items-center space-x-2 min-h-[48px] ${
                     timeSeriesData.isRecording 
                       ? 'bg-red-100 border-red-400 text-red-800' 
                       : 'bg-blue-100 border-blue-400 text-blue-800'
@@ -673,7 +682,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   disabled={!isVideoLoaded}
                   title={isPlaying ? '自動記録中 - 手動での停止も可能' : '手動記録制御'}
                 >
-                  <Activity size={16} />
+                  <Activity size={18} />
                   <span>
                     {timeSeriesData.isRecording 
                       ? (isPlaying ? '記録中（自動）' : '記録停止') 
@@ -683,10 +692,10 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 
                 {/* 動画アップロードボタン */}
                 <button 
-                  className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-1"
+                  className="px-4 py-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-2 min-h-[48px]"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload size={16} />
+                  <Upload size={18} />
                   <span>動画をアップロード</span>
                 </button>
                 <input
