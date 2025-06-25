@@ -523,7 +523,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             <h2 className="text-lg font-semibold mb-4">{TEST_LABELS[testType]}</h2>
             
             {/* 動画表示エリア */}
-            <div className={`grid gap-4 mb-4 ${showComparison && userUploadedVideo ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div className={`grid gap-4 mb-4 ${showComparison && userUploadedVideo ? 'grid-cols-1' : 'grid-cols-1'}`}>
               {/* メイン動画（アップロード動画または選択された動画） */}
               <div className="relative aspect-video bg-black rounded overflow-hidden">
                 <div className="absolute top-2 left-2 z-20 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm">
@@ -633,7 +633,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 {/* デモ動画/アップロード動画切り替えボタン */}
                 {userUploadedVideo && (
                   <button 
-                    className={`px-4 py-3 rounded-lg border min-h-[48px] ${
+                    className={`px-3 py-2 rounded border text-sm ${
                       useUploadedVideo 
                         ? 'bg-gray-100 border-gray-400' 
                         : 'bg-white border-gray-300'
@@ -647,33 +647,33 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 {/* 比較表示切り替えボタン */}
                 {userUploadedVideo && (
                   <button 
-                    className={`px-4 py-3 rounded-lg border min-h-[48px] ${
+                    className={`px-3 py-2 rounded border text-sm ${
                       showComparison 
                         ? 'bg-green-100 border-green-400 text-green-800' 
                         : 'bg-white border-gray-300'
                     }`}
                     onClick={toggleComparison}
                   >
-                    {showComparison ? '比較表示中' : '比較表示'}
+                    {showComparison ? '縦並び表示中' : '縦並び表示'}
                   </button>
                 )}
                 
                 {/* グラフ表示切り替えボタン */}
                 <button 
-                  className={`px-4 py-3 rounded-lg border flex items-center space-x-2 min-h-[48px] ${
+                  className={`px-3 py-2 rounded border flex items-center space-x-1 text-sm ${
                     showChart 
                       ? 'bg-purple-100 border-purple-400 text-purple-800' 
                       : 'bg-white border-gray-300'
                   }`}
                   onClick={toggleChart}
                 >
-                  <BarChart3 size={18} />
+                  <BarChart3 size={16} />
                   <span>{showChart ? 'グラフ表示中' : 'グラフ表示'}</span>
                 </button>
                 
                 {/* 記録開始/停止ボタン */}
                 <button 
-                  className={`px-4 py-3 rounded-lg border flex items-center space-x-2 min-h-[48px] ${
+                  className={`px-3 py-2 rounded border flex items-center space-x-1 text-sm ${
                     timeSeriesData.isRecording 
                       ? 'bg-red-100 border-red-400 text-red-800' 
                       : 'bg-blue-100 border-blue-400 text-blue-800'
@@ -682,7 +682,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   disabled={!isVideoLoaded}
                   title={isPlaying ? '自動記録中 - 手動での停止も可能' : '手動記録制御'}
                 >
-                  <Activity size={18} />
+                  <Activity size={16} />
                   <span>
                     {timeSeriesData.isRecording 
                       ? (isPlaying ? '記録中（自動）' : '記録停止') 
@@ -692,10 +692,10 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 
                 {/* 動画アップロードボタン */}
                 <button 
-                  className="px-4 py-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-2 min-h-[48px]"
+                  className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-1 text-sm"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload size={18} />
+                  <Upload size={16} />
                   <span>動画をアップロード</span>
                 </button>
                 <input
