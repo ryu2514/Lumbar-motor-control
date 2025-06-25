@@ -376,7 +376,13 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setIsVideoLoaded(false);
     setIsPlaying(false);
     setShowComparison(true);
-    setStatusMessage('動画アップロード完了 - 比較表示が有効になりました');
+    
+    // 動画要素をリセット
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    
     console.log('動画がアップロードされました:', url);
   }, []);
 
@@ -398,11 +404,15 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     // 動画切り替え時の状態リセット
     setIsVideoLoaded(false);
     setIsPlaying(false);
+    setStatusMessage('新しい動画を読み込み中...');
+    
     // ログ出力
     console.log('テスト種類変更:', testType, useUploadedVideo ? 'アップロード動画表示' : 'デモ動画表示');
+    
     // 動画を停止
     if (videoRef.current) {
       videoRef.current.pause();
+      videoRef.current.currentTime = 0; // 動画を最初に戻す
     }
   }, [testType, useUploadedVideo, userUploadedVideo, timeSeriesData.isRecording, stopRecording]);
 
@@ -456,9 +466,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // 動画のロード完了時の処理
   const handleVideoLoaded = useCallback(() => {
+    if (videoRef.current) {
+      console.log('動画のロード完了:', {
+        readyState: videoRef.current.readyState,
+        videoWidth: videoRef.current.videoWidth,
+        videoHeight: videoRef.current.videoHeight,
+        duration: videoRef.current.duration
+      });
+    }
     setIsVideoLoaded(true);
     setStatusMessage('動画読み込み完了 - 再生可能です');
-    console.log('動画のロード完了');
   }, []);
 
   // 比較表示の切り替え
@@ -515,7 +532,20 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   ref={videoRef}
                   src={videoUrl}
                   className="w-full h-full object-contain"
+                  onLoadStart={() => {
+                    console.log('Video load start event');
+                    setIsVideoLoaded(false);
+                    setStatusMessage('動画読み込み開始中...');
+                  }}
+                  onLoadedMetadata={() => {
+                    console.log('Video metadata loaded');
+                  }}
                   onLoadedData={handleVideoLoaded}
+                  onCanPlay={() => {
+                    console.log('Video can play event');
+                    setIsVideoLoaded(true);
+                    setStatusMessage('動画準備完了 - 再生可能です');
+                  }}
                   onPlay={() => {
                     console.log('Video play event triggered');
                     setIsPlaying(true);
@@ -530,7 +560,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   }}
                   onError={(e) => {
                     console.error('Video error:', e);
-                    setStatusMessage('動画の読み込みまたは再生でエラーが発生しました');
+                    setIsVideoLoaded(false);
+                    setStatusMessage('動画の読み込みでエラーが発生しました');
                   }}
                 />
                 
