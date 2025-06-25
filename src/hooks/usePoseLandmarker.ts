@@ -76,6 +76,7 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
   // ビデオフレーム処理のループ
   // 再レンダリングをトリガーするためにisloglevelフラグを追加
   const [isLogLevel, setIsLogLevel] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   
   // ビデオisVideoLoaded状態が変わったときにデバッグログを出力
   useEffect(() => {
@@ -85,6 +86,38 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
       setIsLogLevel(prev => prev + 1);
     }
   }, [isVideoLoaded]);
+
+  // ビデオの再生状態をトラッキング
+  useEffect(() => {
+    const videoElement = videoRef?.current;
+    if (!videoElement) return;
+
+    const handlePlay = () => {
+      console.log('🎵 ビデオ再生開始 - ポーズ検出ループを再開');
+      setIsPlaying(true);
+      setIsLogLevel(prev => prev + 1); // フレーム処理を再トリガー
+    };
+
+    const handlePause = () => {
+      console.log('⏸️ ビデオ一時停止 - ポーズ検出ループを停止');
+      setIsPlaying(false);
+    };
+
+    const handleEnded = () => {
+      console.log('🏁 ビデオ終了 - ポーズ検出ループを停止');
+      setIsPlaying(false);
+    };
+
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
+    videoElement.addEventListener('ended', handleEnded);
+
+    return () => {
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
+      videoElement.removeEventListener('ended', handleEnded);
+    };
+  }, [videoRef, isVideoLoaded]);
   
   // 主要なフレーム処理ループ
   useEffect(() => {
@@ -134,24 +167,17 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
         if (
           !videoRef.current || 
           !landmarkerRef.current ||
-          videoRef.current.paused ||
-          videoRef.current.ended ||
           videoRef.current.readyState < 2 // HAVE_CURRENT_DATA以上であることを確認
         ) {
-          // 「適切な状態でない」場合の詳細情報を出力
-          if (videoRef.current && performance.now() % 3000 < 50) { // 3秒に1回程度ログを出力
-            console.log('ℹ️ ビデオ状態がポーズ検出に適切ではありません:', { 
-              paused: videoRef.current.paused,
-              ended: videoRef.current.ended,
-              readyState: videoRef.current.readyState,
-              currentTime: videoRef.current.currentTime.toFixed(2),
-              duration: videoRef.current.duration.toFixed(2),
-              videoWidth: videoRef.current.videoWidth,
-              videoHeight: videoRef.current.videoHeight
-            });
-          }
-          // このフレームでの処理をスキップするが、ループは継続
+          // 次のフレームを継続リクエスト
           requestRef.current = requestAnimationFrame(detectFrame);
+          return;
+        }
+
+        // ビデオが一時停止または終了している場合は検出を停止
+        if (videoRef.current.paused || videoRef.current.ended) {
+          // 一時停止/終了時はrequestAnimationFrameループを停止
+          console.log('ℹ️ ビデオが一時停止または終了のため、ポーズ検出を停止');
           return;
         }
         
@@ -210,7 +236,7 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [isLandmarkerReady, videoRef, isVideoLoaded, isLogLevel]);
+  }, [isLandmarkerReady, videoRef, isVideoLoaded, isLogLevel, isPlaying]);
 
   return { result, error, isReady: isLandmarkerReady };
 };
