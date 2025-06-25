@@ -357,7 +357,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       stopRecording();
       setStatusMessage('動画停止 - 角度記録を停止しました');
     }
-  }, [isPlaying, isVideoLoaded, isModelLoaded, timeSeriesData.isRecording, startRecording, stopRecording]);
+  }, [isPlaying, isVideoLoaded, isModelLoaded]);
 
   // 腰椎角度の取得と記録
   useEffect(() => {
@@ -388,7 +388,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // テスト種類が変更されたときの動画切り替え処理
   useEffect(() => {
-    // 記録中の場合は停止
+    // 記録中の場合は停止（依存配列から除外するためcallbackを使用）
     if (timeSeriesData.isRecording) {
       stopRecording();
     }
@@ -414,7 +414,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       videoRef.current.pause();
       videoRef.current.currentTime = 0; // 動画を最初に戻す
     }
-  }, [testType, useUploadedVideo, userUploadedVideo, timeSeriesData.isRecording, stopRecording]);
+  }, [testType, useUploadedVideo, userUploadedVideo]);
 
   // 初期化は状態の初期値で既に設定済みなので、このuseEffectは削除
 
