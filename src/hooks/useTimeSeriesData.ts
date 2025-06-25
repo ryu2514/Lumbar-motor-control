@@ -60,11 +60,11 @@ export const useTimeSeriesData = () => {
       const now = Date.now();
       const timeElapsed = (now - prev.startTime) / 1000; // 秒に変換
 
-      // 角度に基づくステータス判定
+      // 日本整形外科学会基準による状態判定
       let status: 'normal' | 'caution' | 'abnormal' = 'normal';
-      if (Math.abs(lumbarAngle) > 60) {
+      if (lumbarAngle > 45 || lumbarAngle < -30) {
         status = 'abnormal';
-      } else if (Math.abs(lumbarAngle) > 30) {
+      } else if (lumbarAngle > 30 || lumbarAngle < -20) {
         status = 'caution';
       }
 

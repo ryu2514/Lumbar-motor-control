@@ -52,7 +52,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// ポイントの色を状態に応じて変更する関数
+// ポイントの色を状態に応じて変更する関数（日本整形外科学会基準）
 const getPointColor = (status: string) => {
   switch (status) {
     case 'normal': return '#10b981'; // green-500
@@ -117,11 +117,11 @@ export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
             />
             <Tooltip content={<CustomTooltip />} />
             
-            {/* 正常範囲の背景 */}
+            {/* 日本整形外科学会基準の基準線 */}
             <ReferenceLine y={30} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.7} />
-            <ReferenceLine y={-30} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.7} />
-            <ReferenceLine y={60} stroke="#ef4444" strokeDasharray="2 2" opacity={0.7} />
-            <ReferenceLine y={-60} stroke="#ef4444" strokeDasharray="2 2" opacity={0.7} />
+            <ReferenceLine y={-20} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.7} />
+            <ReferenceLine y={45} stroke="#ef4444" strokeDasharray="2 2" opacity={0.7} />
+            <ReferenceLine y={-30} stroke="#ef4444" strokeDasharray="2 2" opacity={0.7} />
             <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="1 1" opacity={0.5} />
             
             {/* メインライン */}
@@ -145,11 +145,11 @@ export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
         </div>
         <div className="flex items-center">
           <div className="w-3 h-0.5 bg-yellow-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
-          <span>注意範囲 (±30°)</span>
+          <span>注意範囲 (屈曲30°/伸展20°)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-0.5 bg-red-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
-          <span>異常範囲 (±60°)</span>
+          <span>異常範囲 (屈曲45°/伸展30°)</span>
         </div>
       </div>
     </div>

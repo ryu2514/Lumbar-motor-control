@@ -188,24 +188,24 @@ const LumbarAngleVisualizer: React.FC<{ angle: number }> = ({ angle }) => {
           {/* 0度マーカー */}
           <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-gray-400 transform -translate-x-0.5"></div>
           
-          {/* 30度マーカー（左右） */}
+          {/* 30度マーカー（注意範囲） */}
           <div 
             className="absolute top-2 left-1/2 w-0.5 h-3 bg-yellow-400 transform -translate-x-0.5"
             style={{ transform: 'translateX(-50%) rotate(30deg)', transformOrigin: '50% 60px' }}
           ></div>
           <div 
             className="absolute top-2 left-1/2 w-0.5 h-3 bg-yellow-400 transform -translate-x-0.5"
-            style={{ transform: 'translateX(-50%) rotate(-30deg)', transformOrigin: '50% 60px' }}
+            style={{ transform: 'translateX(-50%) rotate(-20deg)', transformOrigin: '50% 60px' }}
           ></div>
           
-          {/* 60度マーカー（左右） */}
+          {/* 45度/30度マーカー（日整会基準上限） */}
           <div 
             className="absolute top-2 left-1/2 w-0.5 h-3 bg-red-400 transform -translate-x-0.5"
-            style={{ transform: 'translateX(-50%) rotate(60deg)', transformOrigin: '50% 60px' }}
+            style={{ transform: 'translateX(-50%) rotate(45deg)', transformOrigin: '50% 60px' }}
           ></div>
           <div 
             className="absolute top-2 left-1/2 w-0.5 h-3 bg-red-400 transform -translate-x-0.5"
-            style={{ transform: 'translateX(-50%) rotate(-60deg)', transformOrigin: '50% 60px' }}
+            style={{ transform: 'translateX(-50%) rotate(-30deg)', transformOrigin: '50% 60px' }}
           ></div>
           
           {/* 中心点 */}
@@ -214,8 +214,8 @@ const LumbarAngleVisualizer: React.FC<{ angle: number }> = ({ angle }) => {
           {/* 角度インジケーター */}
           <div 
             className={`absolute top-1/2 left-1/2 w-0.5 origin-bottom transform -translate-x-0.5 transition-transform duration-200 ${
-              Math.abs(angle) > 60 ? 'bg-red-500' :
-              Math.abs(angle) > 30 ? 'bg-yellow-500' :
+              (angle > 45 || angle < -30) ? 'bg-red-500' :
+              (angle > 30 || angle < -20) ? 'bg-yellow-500' :
               'bg-green-500'
             }`}
             style={{ 
@@ -229,17 +229,17 @@ const LumbarAngleVisualizer: React.FC<{ angle: number }> = ({ angle }) => {
         {/* 数値表示 */}
         <div className="ml-6">
           <div className={`text-3xl font-bold ${
-            Math.abs(angle) > 60 ? 'text-red-500' :
-            Math.abs(angle) > 30 ? 'text-yellow-500' :
+            (angle > 45 || angle < -30) ? 'text-red-500' :
+            (angle > 30 || angle < -20) ? 'text-yellow-500' :
             'text-green-500'
           }`}>
             {angle.toFixed(1)}°
           </div>
           <div className="text-sm text-gray-600 mt-1">
-            {angle > 30 ? '前屈' : angle < -30 ? '後屈' : '正常'}
+            {angle > 30 ? '腰椎屈曲' : angle < -20 ? '腰椎伸展' : '正常範囲'}
           </div>
           <div className="text-xs text-gray-500 mt-2">
-            正常範囲: -30° ～ +30°
+            日整会基準: 屈曲45° / 伸展30°
           </div>
         </div>
       </div>

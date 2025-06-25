@@ -99,16 +99,20 @@ function addLumbarFlexionExtensionMetric(
     // 腰椎屈曲・伸展角度を計算
     const lumbarAngle = calculateLumbarFlexionExtension(shoulderMid, hipMid);
     
-    // 角度に基づく状態判定
+    // 日本整形外科学会基準による状態判定
     let status: 'normal' | 'caution' | 'abnormal' = 'normal';
     let description = '腰椎の屈曲・伸展角度';
     
-    if (Math.abs(lumbarAngle) > 60) {
+    // 日本整形外科学会基準: 腰椎屈曲45°/伸展30°
+    if (lumbarAngle > 45) {
       status = 'abnormal';
-      description = lumbarAngle > 0 ? '過度な前屈姿勢' : '過度な後屈姿勢';
-    } else if (Math.abs(lumbarAngle) > 30) {
+      description = '過度な腰椎屈曲（前屈）';
+    } else if (lumbarAngle < -30) {
+      status = 'abnormal';
+      description = '過度な腰椎伸展（後屈）';
+    } else if (lumbarAngle > 30 || lumbarAngle < -20) {
       status = 'caution';
-      description = lumbarAngle > 0 ? '軽度の前屈姿勢' : '軽度の後屈姿勢';
+      description = lumbarAngle > 0 ? '軽度の腰椎屈曲' : '軽度の腰椎伸展';
     } else {
       description = '良好な腰椎アライメント';
     }
@@ -119,7 +123,7 @@ function addLumbarFlexionExtensionMetric(
       unit: "°",
       status: status,
       description: description,
-      normalRange: "-30° ～ +30°"
+      normalRange: "屈曲45° / 伸展30°（日整会基準）"
     });
   }
 }
