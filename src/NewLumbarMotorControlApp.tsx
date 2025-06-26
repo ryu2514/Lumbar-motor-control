@@ -311,11 +311,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const demoVideoRef = useRef<HTMLVideoElement>(null);
   
+  // デモ動画の状態管理
+  const [isDemoVideoLoaded, setIsDemoVideoLoaded] = useState<boolean>(false);
+  
   // ポーズ検出フックの利用
   const { result, isReady } = usePoseLandmarker(videoRef, isVideoLoaded);
+  const { result: demoResult, isReady: isDemoReady } = usePoseLandmarker(demoVideoRef, isDemoVideoLoaded);
   
   // ランドマークの取得
   const landmarks = result?.landmarks || null;
+  const demoLandmarks = demoResult?.landmarks || null;
   
   // モデルの状態を更新
   useEffect(() => {
@@ -379,12 +384,18 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setVideoUrl(url);
     setIsVideoLoaded(false);
     setIsPlaying(false);
+    setIsDemoVideoLoaded(false);
     setShowComparison(true);
     
     // 動画要素をリセット
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
+    }
+    
+    if (demoVideoRef.current) {
+      demoVideoRef.current.pause();
+      demoVideoRef.current.currentTime = 0;
     }
     
     console.log('動画がアップロードされました:', url);
@@ -408,6 +419,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     // 動画切り替え時の状態リセット
     setIsVideoLoaded(false);
     setIsPlaying(false);
+    setIsDemoVideoLoaded(false);
     setStatusMessage('新しい動画を読み込み中...');
     
     // 角度フィルターをリセット
@@ -420,6 +432,11 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0; // 動画を最初に戻す
+    }
+    
+    if (demoVideoRef.current) {
+      demoVideoRef.current.pause();
+      demoVideoRef.current.currentTime = 0;
     }
   }, [testType, useUploadedVideo, userUploadedVideo]);
 
@@ -538,6 +555,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   controlsList="nodownload nofullscreen noremoteplayback"
                   webkit-playsinline="true"
                   x5-playsinline="true"
+                  preload="none"
                   style={{ pointerEvents: 'none' }}
                   onLoadStart={() => {
                     console.log('Video load start event');
@@ -546,6 +564,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   }}
                   onLoadedMetadata={() => {
                     console.log('Video metadata loaded');
+                    setStatusMessage('動画メタデータ読み込み完了');
                   }}
                   onLoadedData={handleVideoLoaded}
                   onCanPlay={() => {
@@ -569,6 +588,22 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     console.error('Video error:', e);
                     setIsVideoLoaded(false);
                     setStatusMessage('動画の読み込みでエラーが発生しました');
+                  }}
+                  onProgress={() => {
+                    // バッファリング進捗の表示
+                    if (videoRef.current) {
+                      const buffered = videoRef.current.buffered;
+                      if (buffered.length > 0) {
+                        const bufferedEnd = buffered.end(buffered.length - 1);
+                        const duration = videoRef.current.duration;
+                        if (duration > 0) {
+                          const bufferedPercent = (bufferedEnd / duration) * 100;
+                          if (bufferedPercent < 100) {
+                            setStatusMessage(`動画読み込み中... ${bufferedPercent.toFixed(0)}%`);
+                          }
+                        }
+                      }
+                    }
                   }}
                 />
                 
@@ -603,7 +638,37 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     playsInline
                     disablePictureInPicture
                     controlsList="nodownload nofullscreen noremoteplayback"
+                    preload="none"
+                    onLoadedData={() => {
+                      console.log('Demo video loaded');
+                      setIsDemoVideoLoaded(true);
+                    }}
+                    onPlay={() => {
+                      console.log('Demo video play');
+                    }}
+                    onPause={() => {
+                      console.log('Demo video pause');
+                    }}
+                    onEnded={() => {
+                      console.log('Demo video ended');
+                    }}
                   />
+                  
+                  {/* デモ動画のポーズ描画オーバーレイ */}
+                  {isDemoVideoLoaded && demoLandmarks && (
+                    <PoseVisualizer 
+                      landmarks={demoLandmarks as NormalizedLandmark[][]} 
+                      videoWidth={demoVideoRef.current?.videoWidth || 640}
+                      videoHeight={demoVideoRef.current?.videoHeight || 480}
+                    />
+                  )}
+                  
+                  {/* デモ動画読み込み中表示 */}
+                  {!isDemoVideoLoaded && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
+                      デモ動画読み込み中...
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -717,8 +782,15 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               <div className="text-sm text-gray-600 mb-1">
                 <strong>実行状況:</strong> {statusMessage}
               </div>
-              <div className="text-xs text-gray-500">
-                姿勢検出モデル: {isModelLoaded ? '✓ 読み込み完了' : '⏳ 読み込み中...'}
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>
+                  メイン動画姿勢検出: {isModelLoaded ? '✓ 読み込み完了' : '⏳ 読み込み中...'}
+                </div>
+                {showComparison && userUploadedVideo && (
+                  <div>
+                    デモ動画姿勢検出: {isDemoReady ? '✓ 読み込み完了' : '⏳ 読み込み中...'}
+                  </div>
+                )}
               </div>
             </div>
           </div>
