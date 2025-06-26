@@ -307,6 +307,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [statusMessage, setStatusMessage] = useState<string>('初期化中...');
   const [showChart, setShowChart] = useState<boolean>(false);
   const [videoRetryCount, setVideoRetryCount] = useState<number>(0);
+  const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
   
   // ビデオ要素への参照
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -500,6 +501,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setVideoRetryCount(0);
     setStatusMessage('新しい動画を読み込み中...');
     
+    // タイムアウトをクリア
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      setLoadingTimeout(null);
+    }
+    
     // 角度フィルターをリセット
     resetAngleFilter();
     
@@ -577,6 +584,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
         setIsVideoLoaded(true);
         setStatusMessage('動画読み込み完了 - 再生可能です');
+        
+        // タイムアウトをクリア
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          setLoadingTimeout(null);
+        }
       } else {
         console.warn('動画のメタデータが不完全:', {
           readyState: video.readyState,
@@ -632,9 +645,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       setIsVideoLoaded(false);
       setVideoRetryCount(0);
       setStatusMessage('動画を手動で再読み込み中...');
+      
+      // 既存のタイムアウトをクリア
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        setLoadingTimeout(null);
+      }
+      
       videoRef.current.load();
     }
-  }, []);
+  }, [loadingTimeout]);
   
   // デモ動画の手動再読み込み
   const reloadDemoVideo = useCallback(() => {
@@ -705,6 +725,21 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     console.log('Video load start event');
                     setIsVideoLoaded(false);
                     setStatusMessage('動画読み込み開始中...');
+                    
+                    // 既存のタイムアウトをクリア
+                    if (loadingTimeout) {
+                      clearTimeout(loadingTimeout);
+                    }
+                    
+                    // 30秒後にタイムアウト
+                    const timeoutId = window.setTimeout(() => {
+                      if (!isVideoLoaded) {
+                        console.warn('⏰ Video loading timeout');
+                        setStatusMessage('動画読み込みがタイムアウトしました - 再読み込みボタンをお試しください');
+                      }
+                    }, 30000);
+                    
+                    setLoadingTimeout(timeoutId);
                   }}
                   onLoadedMetadata={() => {
                     console.log('Video metadata loaded');
@@ -718,6 +753,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       if (video.readyState >= 3 && video.videoWidth > 0) {
                         setIsVideoLoaded(true);
                         setStatusMessage('動画準備完了 - 再生可能です');
+                        
+                        // タイムアウトをクリア
+                        if (loadingTimeout) {
+                          clearTimeout(loadingTimeout);
+                          setLoadingTimeout(null);
+                        }
                       }
                     }
                   }}
@@ -728,6 +769,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       if (video.videoWidth > 0 && video.videoHeight > 0) {
                         setIsVideoLoaded(true);
                         setStatusMessage('動画準備完了 - 再生可能です');
+                        
+                        // タイムアウトをクリア
+                        if (loadingTimeout) {
+                          clearTimeout(loadingTimeout);
+                          setLoadingTimeout(null);
+                        }
                       }
                     }
                   }}
@@ -1006,6 +1053,21 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       : '記録開始'}
                   </span>
                 </button>
+                
+                {/* 動画再読み込みボタン */}
+                <button 
+                  className="px-4 py-3 rounded-lg border border-orange-300 bg-orange-50 hover:bg-orange-100 flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] text-orange-700"
+                  onClick={reloadVideo}
+                  title="動画が読み込めない場合に再試行"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                    <path d="M21 3v5h-5"/>
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                    <path d="M3 21v-5h5"/>
+                  </svg>
+                  <span>再読み込み</span>
+                </button>
               </div>
 
               {/* 表示オプション */}
@@ -1057,20 +1119,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   トラブルシューティング・詳細設定
                 </summary>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button 
-                    className="px-3 py-2 rounded border border-orange-300 bg-orange-50 hover:bg-orange-100 flex items-center space-x-1 text-sm text-orange-700"
-                    onClick={reloadVideo}
-                    title="動画が読み込めない場合に再試行"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                      <path d="M21 3v5h-5"/>
-                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                      <path d="M3 21v-5h5"/>
-                    </svg>
-                    <span>メイン動画再読み込み</span>
-                  </button>
-                  
                   {showComparison && userUploadedVideo && (
                     <>
                       <button 
@@ -1138,7 +1186,18 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-700">動画状態:</span>
-                  <span className="text-sm font-medium text-gray-900">{statusMessage}</span>
+                  <div className="flex items-center space-x-2">
+                    {!isVideoLoaded && statusMessage.includes('読み込み') && (
+                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                    )}
+                    {statusMessage.includes('タイムアウト') && (
+                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    )}
+                    {isVideoLoaded && (
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    )}
+                    <span className="text-sm font-medium text-gray-900">{statusMessage}</span>
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between">
