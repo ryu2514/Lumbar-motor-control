@@ -306,6 +306,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [showComparison, setShowComparison] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('初期化中...');
   const [showChart, setShowChart] = useState<boolean>(false);
+  const [videoRetryCount, setVideoRetryCount] = useState<number>(0);
   
   // ビデオ要素への参照
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -385,6 +386,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setIsVideoLoaded(false);
     setIsPlaying(false);
     setIsDemoVideoLoaded(false);
+    setVideoRetryCount(0);
     setShowComparison(true);
     
     // 動画要素をリセット
@@ -420,6 +422,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setIsVideoLoaded(false);
     setIsPlaying(false);
     setIsDemoVideoLoaded(false);
+    setVideoRetryCount(0);
     setStatusMessage('新しい動画を読み込み中...');
     
     // 角度フィルターをリセット
@@ -485,15 +488,29 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   // 動画のロード完了時の処理
   const handleVideoLoaded = useCallback(() => {
     if (videoRef.current) {
+      const video = videoRef.current;
       console.log('動画のロード完了:', {
-        readyState: videoRef.current.readyState,
-        videoWidth: videoRef.current.videoWidth,
-        videoHeight: videoRef.current.videoHeight,
-        duration: videoRef.current.duration
+        readyState: video.readyState,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        duration: video.duration,
+        networkState: video.networkState,
+        currentSrc: video.currentSrc
       });
+      
+      // ReadyState 2以上（HAVE_CURRENT_DATA）であることを確認
+      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+        setIsVideoLoaded(true);
+        setStatusMessage('動画読み込み完了 - 再生可能です');
+      } else {
+        console.warn('動画のメタデータが不完全:', {
+          readyState: video.readyState,
+          videoWidth: video.videoWidth,
+          videoHeight: video.videoHeight
+        });
+        setStatusMessage('動画メタデータ読み込み中...');
+      }
     }
-    setIsVideoLoaded(true);
-    setStatusMessage('動画読み込み完了 - 再生可能です');
   }, []);
 
   // 比較表示の切り替え
@@ -519,6 +536,17 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // ファイルアップロード用の隠しInput参照
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 動画の手動再読み込み
+  const reloadVideo = useCallback(() => {
+    if (videoRef.current) {
+      console.log('Manual video reload triggered');
+      setIsVideoLoaded(false);
+      setVideoRetryCount(0);
+      setStatusMessage('動画を手動で再読み込み中...');
+      videoRef.current.load();
+    }
+  }, []);
 
   // JSXレンダリング部分
   return (
@@ -555,7 +583,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   controlsList="nodownload nofullscreen noremoteplayback"
                   webkit-playsinline="true"
                   x5-playsinline="true"
-                  preload="none"
+                  preload="metadata"
                   style={{ pointerEvents: 'none' }}
                   onLoadStart={() => {
                     console.log('Video load start event');
@@ -569,8 +597,23 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   onLoadedData={handleVideoLoaded}
                   onCanPlay={() => {
                     console.log('Video can play event');
-                    setIsVideoLoaded(true);
-                    setStatusMessage('動画準備完了 - 再生可能です');
+                    if (videoRef.current) {
+                      const video = videoRef.current;
+                      if (video.readyState >= 3 && video.videoWidth > 0) {
+                        setIsVideoLoaded(true);
+                        setStatusMessage('動画準備完了 - 再生可能です');
+                      }
+                    }
+                  }}
+                  onCanPlayThrough={() => {
+                    console.log('Video can play through event');
+                    if (videoRef.current) {
+                      const video = videoRef.current;
+                      if (video.videoWidth > 0 && video.videoHeight > 0) {
+                        setIsVideoLoaded(true);
+                        setStatusMessage('動画準備完了 - 再生可能です');
+                      }
+                    }
                   }}
                   onPlay={() => {
                     console.log('Video play event triggered');
@@ -586,8 +629,30 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   }}
                   onError={(e) => {
                     console.error('Video error:', e);
-                    setIsVideoLoaded(false);
-                    setStatusMessage('動画の読み込みでエラーが発生しました');
+                    if (videoRef.current) {
+                      const video = videoRef.current;
+                      console.error('Video error details:', {
+                        error: video.error,
+                        networkState: video.networkState,
+                        readyState: video.readyState,
+                        currentSrc: video.currentSrc
+                      });
+                      
+                      // 3回まで再試行
+                      if (videoRetryCount < 3) {
+                        console.log(`動画読み込み再試行中... (${videoRetryCount + 1}/3)`);
+                        setVideoRetryCount(prev => prev + 1);
+                        setStatusMessage(`動画読み込み再試行中... (${videoRetryCount + 1}/3)`);
+                        
+                        // 1秒後に再試行
+                        setTimeout(() => {
+                          video.load();
+                        }, 1000);
+                      } else {
+                        setIsVideoLoaded(false);
+                        setStatusMessage('動画の読み込みに失敗しました - 別の動画を試してください');
+                      }
+                    }
                   }}
                   onProgress={() => {
                     // バッファリング進捗の表示
@@ -638,7 +703,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     playsInline
                     disablePictureInPicture
                     controlsList="nodownload nofullscreen noremoteplayback"
-                    preload="none"
+                    preload="metadata"
                     onLoadedData={() => {
                       console.log('Demo video loaded');
                       setIsDemoVideoLoaded(true);
@@ -763,6 +828,22 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   <Upload size={16} />
                   <span>動画をアップロード</span>
                 </button>
+                
+                {/* 動画再読み込みボタン */}
+                <button 
+                  className="px-3 py-2 rounded border border-orange-300 bg-orange-50 hover:bg-orange-100 flex items-center space-x-1 text-sm text-orange-700"
+                  onClick={reloadVideo}
+                  title="動画が読み込めない場合に再試行"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                    <path d="M21 3v5h-5"/>
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                    <path d="M3 21v-5h5"/>
+                  </svg>
+                  <span>再読み込み</span>
+                </button>
+                
                 <input
                   ref={fileInputRef}
                   type="file"
