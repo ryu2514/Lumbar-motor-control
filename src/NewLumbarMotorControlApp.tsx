@@ -319,6 +319,75 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const { result, isReady } = usePoseLandmarker(videoRef, isVideoLoaded);
   const { result: demoResult, isReady: isDemoReady } = usePoseLandmarker(demoVideoRef, isDemoVideoLoaded);
   
+  // デモ動画のポーズ検出状況をログ出力
+  useEffect(() => {
+    console.log('🔍 Demo video pose detection state:', {
+      isDemoVideoLoaded,
+      isDemoReady,
+      hasDemoResult: !!demoResult,
+      hasLandmarks: !!demoResult?.landmarks,
+      landmarksCount: demoResult?.landmarks?.length || 0
+    });
+  }, [isDemoVideoLoaded, isDemoReady, demoResult]);
+  
+  // デモ動画の初期化処理を一元管理
+  const initializeDemoVideo = useCallback(() => {
+    console.log('🎬 Initializing demo video...');
+    setIsDemoVideoLoaded(false);
+    
+    // DOM要素が存在することを確認してから処理
+    const checkAndInitialize = () => {
+      if (demoVideoRef.current) {
+        const video = demoVideoRef.current;
+        console.log('🔄 Demo video initialization:', {
+          src: video.src,
+          currentSrc: video.currentSrc,
+          readyState: video.readyState
+        });
+        
+        // 確実にロード
+        video.load();
+        
+        // 少し遅延してからプレイを試行
+        setTimeout(() => {
+          if (video.readyState >= 3) {
+            video.play().catch(error => {
+              console.log('Auto-play prevented:', error.message);
+            });
+          }
+        }, 1000);
+        
+        return true;
+      }
+      return false;
+    };
+    
+    // 最大3回まで試行
+    let attempts = 0;
+    const tryInitialize = () => {
+      attempts++;
+      if (checkAndInitialize()) {
+        console.log('✅ Demo video initialization successful');
+      } else if (attempts < 3) {
+        console.log(`⏳ Demo video not ready, attempt ${attempts}/3`);
+        setTimeout(tryInitialize, 500);
+      } else {
+        console.warn('❌ Demo video initialization failed after 3 attempts');
+      }
+    };
+    
+    // 200ms後に開始（DOM確実作成後）
+    setTimeout(tryInitialize, 200);
+  }, []);
+  
+  // 比較表示状態の変更を監視
+  useEffect(() => {
+    if (showComparison && userUploadedVideo) {
+      console.log('🔄 Comparison view activated');
+      initializeDemoVideo();
+    }
+  }, [showComparison, userUploadedVideo, initializeDemoVideo]);
+  
   // ランドマークの取得
   const landmarks = result?.landmarks || null;
   const demoLandmarks = demoResult?.landmarks || null;
@@ -389,6 +458,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setVideoRetryCount(0);
     setShowComparison(true);
     
+    // アップロード後デモ動画を初期化
+    setTimeout(() => {
+      console.log('📤 Video uploaded, initializing demo video...');
+      initializeDemoVideo();
+    }, 1500);
+    
     // 動画要素をリセット
     if (videoRef.current) {
       videoRef.current.pause();
@@ -401,7 +476,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
     
     console.log('動画がアップロードされました:', url);
-  }, []);
+  }, [initializeDemoVideo]);
 
   // テスト種類が変更されたときの動画切り替え処理
   useEffect(() => {
@@ -515,8 +590,21 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // 比較表示の切り替え
   const toggleComparison = useCallback(() => {
-    setShowComparison(prev => !prev);
-  }, []);
+    setShowComparison(prev => {
+      const newValue = !prev;
+      console.log('🔄 Comparison toggle:', { from: prev, to: newValue });
+      
+      // 比較表示をONにする場合、デモ動画を初期化
+      if (newValue && userUploadedVideo) {
+        console.log('🔄 Toggling comparison ON - initializing demo video');
+        setTimeout(() => {
+          initializeDemoVideo();
+        }, 300);
+      }
+      
+      return newValue;
+    });
+  }, [userUploadedVideo, initializeDemoVideo]);
   
   // グラフ表示の切り替え
   const toggleChart = useCallback(() => {
@@ -545,6 +633,34 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       setVideoRetryCount(0);
       setStatusMessage('動画を手動で再読み込み中...');
       videoRef.current.load();
+    }
+  }, []);
+  
+  // デモ動画の手動再読み込み
+  const reloadDemoVideo = useCallback(() => {
+    console.log('Manual demo video reload triggered');
+    setStatusMessage('デモ動画を手動で再読み込み中...');
+    initializeDemoVideo();
+  }, [initializeDemoVideo]);
+  
+  // デモ動画を強制的に有効化（デバッグ用）
+  const forceDemoVideoLoad = useCallback(() => {
+    console.log('🚀 Force demo video load triggered');
+    setIsDemoVideoLoaded(true);
+    setStatusMessage('デモ動画を強制的に有効化しました');
+  }, []);
+  
+  // デモ動画を手動で再生
+  const playDemoVideo = useCallback(() => {
+    if (demoVideoRef.current) {
+      console.log('🎬 Manual demo video play triggered');
+      demoVideoRef.current.play().then(() => {
+        console.log('✅ Demo video manual play successful');
+        setStatusMessage('デモ動画を手動で再生開始しました');
+      }).catch((error) => {
+        console.error('❌ Demo video manual play failed:', error);
+        setStatusMessage('デモ動画の手動再生に失敗しました');
+      });
     }
   }, []);
 
@@ -618,10 +734,27 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   onPlay={() => {
                     console.log('Video play event triggered');
                     setIsPlaying(true);
+                    
+                    // メイン動画が再生開始されたらデモ動画も再生
+                    if (showComparison && userUploadedVideo && demoVideoRef.current && isDemoVideoLoaded) {
+                      setTimeout(() => {
+                        demoVideoRef.current?.play().then(() => {
+                          console.log('🎬 Demo video synced with main video play');
+                        }).catch((error) => {
+                          console.log('⚠️ Demo video sync play failed:', error.message);
+                        });
+                      }, 100);
+                    }
                   }}
                   onPause={() => {
                     console.log('Video pause event triggered');
                     setIsPlaying(false);
+                    
+                    // メイン動画が一時停止されたらデモ動画も一時停止
+                    if (showComparison && userUploadedVideo && demoVideoRef.current) {
+                      demoVideoRef.current.pause();
+                      console.log('⏸️ Demo video synced with main video pause');
+                    }
                   }}
                   onEnded={() => {
                     console.log('Video ended event triggered');
@@ -694,19 +827,87 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 <div className="relative aspect-video bg-black rounded overflow-hidden">
                   <div className="absolute top-2 left-2 z-20 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm">
                     参考デモ動画
+                    {isDemoVideoLoaded ? ' ✓' : ' ⏳'}
                   </div>
                   <video
+                    key={`demo-${testType}-${showComparison}`}
                     ref={demoVideoRef}
                     src={DEMO_VIDEOS[testType]}
                     className="w-full h-full object-contain"
                     controls
+                    muted
+                    autoPlay
+                    loop
                     playsInline
                     disablePictureInPicture
                     controlsList="nodownload nofullscreen noremoteplayback"
-                    preload="metadata"
+                    webkit-playsinline="true"
+                    x5-playsinline="true"
+                    preload="auto"
                     onLoadedData={() => {
-                      console.log('Demo video loaded');
-                      setIsDemoVideoLoaded(true);
+                      console.log('Demo video onLoadedData');
+                      if (demoVideoRef.current) {
+                        const video = demoVideoRef.current;
+                        console.log('Demo video load details:', {
+                          readyState: video.readyState,
+                          videoWidth: video.videoWidth,
+                          videoHeight: video.videoHeight,
+                          duration: video.duration,
+                          networkState: video.networkState
+                        });
+                        
+                        if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+                          setIsDemoVideoLoaded(true);
+                          console.log('✅ Demo video successfully loaded');
+                          
+                          // 自動再生を試行（ユーザーインタラクションが必要な場合はcatchで処理）
+                          setTimeout(() => {
+                            video.play().then(() => {
+                              console.log('🎬 Demo video auto-play started');
+                            }).catch((error) => {
+                              console.log('⚠️ Demo video auto-play prevented (user interaction required):', error.message);
+                            });
+                          }, 500);
+                        }
+                      }
+                    }}
+                    onCanPlay={() => {
+                      console.log('Demo video can play');
+                      if (demoVideoRef.current) {
+                        const video = demoVideoRef.current;
+                        if (video.readyState >= 3 && video.videoWidth > 0) {
+                          setIsDemoVideoLoaded(true);
+                          console.log('✅ Demo video ready to play');
+                          
+                          // 自動再生を試行
+                          setTimeout(() => {
+                            video.play().then(() => {
+                              console.log('🎬 Demo video auto-play from canPlay');
+                            }).catch((error) => {
+                              console.log('⚠️ Demo video auto-play prevented from canPlay:', error.message);
+                            });
+                          }, 200);
+                        }
+                      }
+                    }}
+                    onCanPlayThrough={() => {
+                      console.log('Demo video can play through');
+                      if (demoVideoRef.current) {
+                        const video = demoVideoRef.current;
+                        if (video.videoWidth > 0 && video.videoHeight > 0) {
+                          setIsDemoVideoLoaded(true);
+                          console.log('✅ Demo video fully loaded');
+                          
+                          // 自動再生を試行
+                          setTimeout(() => {
+                            video.play().then(() => {
+                              console.log('🎬 Demo video auto-play from canPlayThrough');
+                            }).catch((error) => {
+                              console.log('⚠️ Demo video auto-play prevented from canPlayThrough:', error.message);
+                            });
+                          }, 100);
+                        }
+                      }
                     }}
                     onPlay={() => {
                       console.log('Demo video play');
@@ -716,6 +917,23 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     }}
                     onEnded={() => {
                       console.log('Demo video ended');
+                    }}
+                    onError={(e) => {
+                      console.error('Demo video error:', e);
+                      if (demoVideoRef.current) {
+                        const video = demoVideoRef.current;
+                        console.error('Demo video error details:', {
+                          error: video.error,
+                          networkState: video.networkState,
+                          readyState: video.readyState,
+                          currentSrc: video.currentSrc
+                        });
+                      }
+                      setIsDemoVideoLoaded(false);
+                    }}
+                    onLoadStart={() => {
+                      console.log('Demo video load start');
+                      setIsDemoVideoLoaded(false);
                     }}
                   />
                   
@@ -739,58 +957,89 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             </div>
             
             {/* 動画コントロールエリア */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              {/* 再生/一時停止ボタン - スマホ対応でサイズアップ */}
-              <button 
-                className="flex items-center space-x-2 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 text-lg font-medium min-h-[48px]"
-                onClick={togglePlayPause}
-                disabled={!isVideoLoaded}
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause size={20} />
-                    <span>一時停止</span>
-                  </>
-                ) : (
-                  <>
-                    <Play size={20} />
-                    <span>再生</span>
-                  </>
-                )}
-              </button>
-              
-              <div className="flex flex-wrap gap-2">
-                {/* デモ動画/アップロード動画切り替えボタン */}
-                {userUploadedVideo && (
-                  <button 
-                    className={`px-3 py-2 rounded border text-sm ${
-                      useUploadedVideo 
-                        ? 'bg-gray-100 border-gray-400' 
-                        : 'bg-white border-gray-300'
-                    }`}
-                    onClick={toggleVideoSource}
-                  >
-                    {useUploadedVideo ? 'デモ動画を表示' : 'アップロード動画を表示'}
-                  </button>
-                )}
-                
-                {/* 比較表示切り替えボタン */}
-                {userUploadedVideo && (
-                  <button 
-                    className={`px-3 py-2 rounded border text-sm ${
-                      showComparison 
-                        ? 'bg-green-100 border-green-400 text-green-800' 
-                        : 'bg-white border-gray-300'
-                    }`}
-                    onClick={toggleComparison}
-                  >
-                    {showComparison ? '縦並び表示中' : '縦並び表示'}
-                  </button>
-                )}
-                
-                {/* グラフ表示切り替えボタン */}
+            <div className="space-y-4 mb-6">
+              {/* メイン操作ボタン */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* 再生/一時停止ボタン */}
                 <button 
-                  className={`px-3 py-2 rounded border flex items-center space-x-1 text-sm ${
+                  className="flex items-center space-x-2 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-400 text-lg font-medium min-h-[48px] shadow-sm"
+                  onClick={togglePlayPause}
+                  disabled={!isVideoLoaded}
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause size={20} />
+                      <span>一時停止</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play size={20} />
+                      <span>再生</span>
+                    </>
+                  )}
+                </button>
+                
+                {/* 動画アップロードボタン */}
+                <button 
+                  className="px-4 py-3 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px]"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={18} />
+                  <span>動画をアップロード</span>
+                </button>
+                
+                {/* 記録ボタン */}
+                <button 
+                  className={`px-4 py-3 rounded-lg border flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] ${
+                    timeSeriesData.isRecording 
+                      ? 'bg-red-100 border-red-400 text-red-800' 
+                      : 'bg-blue-100 border-blue-400 text-blue-800'
+                  }`}
+                  onClick={toggleRecording}
+                  disabled={!isVideoLoaded}
+                  title={isPlaying ? '自動記録中 - 手動での停止も可能' : '手動記録制御'}
+                >
+                  <Activity size={18} />
+                  <span>
+                    {timeSeriesData.isRecording 
+                      ? (isPlaying ? '記録中' : '記録停止') 
+                      : '記録開始'}
+                  </span>
+                </button>
+              </div>
+
+              {/* 表示オプション */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium mr-2">表示オプション:</span>
+                
+                {userUploadedVideo && (
+                  <>
+                    <button 
+                      className={`px-3 py-2 rounded-lg border text-sm ${
+                        useUploadedVideo 
+                          ? 'bg-gray-100 border-gray-400' 
+                          : 'bg-white border-gray-300'
+                      }`}
+                      onClick={toggleVideoSource}
+                    >
+                      {useUploadedVideo ? 'デモ動画を表示' : 'アップロード動画を表示'}
+                    </button>
+                    
+                    <button 
+                      className={`px-3 py-2 rounded-lg border text-sm ${
+                        showComparison 
+                          ? 'bg-green-100 border-green-400 text-green-800' 
+                          : 'bg-white border-gray-300'
+                      }`}
+                      onClick={toggleComparison}
+                    >
+                      {showComparison ? '縦並び表示中' : '縦並び表示'}
+                    </button>
+                  </>
+                )}
+                
+                <button 
+                  className={`px-3 py-2 rounded-lg border flex items-center space-x-1 text-sm ${
                     showChart 
                       ? 'bg-purple-100 border-purple-400 text-purple-800' 
                       : 'bg-white border-gray-300'
@@ -800,76 +1049,146 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   <BarChart3 size={16} />
                   <span>{showChart ? 'グラフ表示中' : 'グラフ表示'}</span>
                 </button>
-                
-                {/* 記録開始/停止ボタン */}
-                <button 
-                  className={`px-3 py-2 rounded border flex items-center space-x-1 text-sm ${
-                    timeSeriesData.isRecording 
-                      ? 'bg-red-100 border-red-400 text-red-800' 
-                      : 'bg-blue-100 border-blue-400 text-blue-800'
-                  }`}
-                  onClick={toggleRecording}
-                  disabled={!isVideoLoaded}
-                  title={isPlaying ? '自動記録中 - 手動での停止も可能' : '手動記録制御'}
-                >
-                  <Activity size={16} />
-                  <span>
-                    {timeSeriesData.isRecording 
-                      ? (isPlaying ? '記録中（自動）' : '記録停止') 
-                      : '手動記録開始'}
-                  </span>
-                </button>
-                
-                {/* 動画アップロードボタン */}
-                <button 
-                  className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50 flex items-center space-x-1 text-sm"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload size={16} />
-                  <span>動画をアップロード</span>
-                </button>
-                
-                {/* 動画再読み込みボタン */}
-                <button 
-                  className="px-3 py-2 rounded border border-orange-300 bg-orange-50 hover:bg-orange-100 flex items-center space-x-1 text-sm text-orange-700"
-                  onClick={reloadVideo}
-                  title="動画が読み込めない場合に再試行"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                    <path d="M21 3v5h-5"/>
-                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                    <path d="M3 21v-5h5"/>
-                  </svg>
-                  <span>再読み込み</span>
-                </button>
-                
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept="video/*"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleVideoUpload(e.target.files[0]);
-                    }
-                  }}
-                />
               </div>
+
+              {/* デバッグ・メンテナンス */}
+              <details className="bg-gray-50 rounded-lg p-3">
+                <summary className="text-sm text-gray-600 cursor-pointer hover:text-gray-800 font-medium">
+                  トラブルシューティング・詳細設定
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button 
+                    className="px-3 py-2 rounded border border-orange-300 bg-orange-50 hover:bg-orange-100 flex items-center space-x-1 text-sm text-orange-700"
+                    onClick={reloadVideo}
+                    title="動画が読み込めない場合に再試行"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                      <path d="M21 3v5h-5"/>
+                      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                      <path d="M3 21v-5h5"/>
+                    </svg>
+                    <span>メイン動画再読み込み</span>
+                  </button>
+                  
+                  {showComparison && userUploadedVideo && (
+                    <>
+                      <button 
+                        className="px-3 py-2 rounded border border-blue-300 bg-blue-50 hover:bg-blue-100 flex items-center space-x-1 text-sm text-blue-700"
+                        onClick={reloadDemoVideo}
+                        title="デモ動画再読み込み"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                          <path d="M21 3v5h-5"/>
+                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                          <path d="M3 21v-5h5"/>
+                        </svg>
+                        <span>デモ動画再読み込み</span>
+                      </button>
+                      
+                      <button 
+                        className="px-3 py-2 rounded border border-green-300 bg-green-50 hover:bg-green-100 flex items-center space-x-1 text-sm text-green-700"
+                        onClick={forceDemoVideoLoad}
+                        title="デモ動画を強制的に有効化"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M9 12l2 2 4-4"/>
+                          <circle cx="12" cy="12" r="9"/>
+                        </svg>
+                        <span>デモ動画強制有効</span>
+                      </button>
+                      
+                      <button 
+                        className="px-3 py-2 rounded border border-purple-300 bg-purple-50 hover:bg-purple-100 flex items-center space-x-1 text-sm text-purple-700"
+                        onClick={playDemoVideo}
+                        title="デモ動画を手動で再生"
+                        disabled={!isDemoVideoLoaded}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polygon points="5,3 19,12 5,21"/>
+                        </svg>
+                        <span>デモ動画手動再生</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </details>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                accept="video/*"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handleVideoUpload(e.target.files[0]);
+                  }
+                }}
+              />
             </div>
             
             {/* ステータス表示 */}
-            <div className="bg-gray-50 p-3 rounded-md">
-              <div className="text-sm text-gray-600 mb-1">
-                <strong>実行状況:</strong> {statusMessage}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2 mb-3">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <h3 className="text-sm font-semibold text-gray-800">システム状況</h3>
               </div>
-              <div className="text-xs text-gray-500 space-y-1">
-                <div>
-                  メイン動画姿勢検出: {isModelLoaded ? '✓ 読み込み完了' : '⏳ 読み込み中...'}
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">動画状態:</span>
+                  <span className="text-sm font-medium text-gray-900">{statusMessage}</span>
                 </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">姿勢検出モデル:</span>
+                  <div className="flex items-center space-x-1">
+                    {isModelLoaded ? (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-green-700">準備完了</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-medium text-yellow-700">読み込み中</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
                 {showComparison && userUploadedVideo && (
-                  <div>
-                    デモ動画姿勢検出: {isDemoReady ? '✓ 読み込み完了' : '⏳ 読み込み中...'}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">デモ動画:</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-1">
+                        {isDemoVideoLoaded ? (
+                          <>
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-xs text-green-700">ロード完了</span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-orange-700">ロード中</span>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {isDemoReady ? (
+                          <>
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-xs text-green-700">解析準備完了</span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-yellow-700">解析準備中</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
