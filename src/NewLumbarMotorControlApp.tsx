@@ -308,6 +308,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [showChart, setShowChart] = useState<boolean>(false);
   const [videoRetryCount, setVideoRetryCount] = useState<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   
   // ビデオ要素への参照
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -683,6 +686,113 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       });
     }
   }, []);
+
+  // 解析動画の録画開始
+  const startVideoRecording = useCallback(async () => {
+    if (!videoRef.current) {
+      alert('動画が読み込まれていません');
+      return;
+    }
+
+    try {
+      // 動画要素とポーズ描画キャンバスを取得
+      const video = videoRef.current;
+      const canvasOverlay = document.querySelector('canvas');
+      
+      if (!canvasOverlay) {
+        alert('ポーズ描画が表示されていません');
+        return;
+      }
+
+      // 合成用のキャンバスを作成
+      const compositeCanvas = document.createElement('canvas');
+      const ctx = compositeCanvas.getContext('2d');
+      
+      if (!ctx) {
+        alert('キャンバスの初期化に失敗しました');
+        return;
+      }
+
+      // キャンバスサイズを動画に合わせる
+      compositeCanvas.width = video.videoWidth || 640;
+      compositeCanvas.height = video.videoHeight || 480;
+
+      console.log('🎥 Starting video recording with overlay...', {
+        videoWidth: compositeCanvas.width,
+        videoHeight: compositeCanvas.height
+      });
+
+      // MediaRecorderでキャンバスストリームを録画
+      const stream = compositeCanvas.captureStream(30); // 30fps
+      const mediaRecorder = new MediaRecorder(stream, { 
+        mimeType: 'video/webm; codecs=vp9' 
+      });
+      
+      const chunks: Blob[] = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        console.log('📹 Recording stopped, creating download...');
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        
+        // ダウンロードリンクを作成
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setStatusMessage('解析動画のダウンロードが完了しました');
+        setIsRecording(false);
+      };
+
+      // フレーム描画ループ
+      const drawFrame = () => {
+        if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+        
+        // 動画フレームを描画
+        ctx.drawImage(video, 0, 0, compositeCanvas.width, compositeCanvas.height);
+        
+        // ポーズ描画オーバーレイを合成
+        if (canvasOverlay) {
+          ctx.drawImage(canvasOverlay, 0, 0, compositeCanvas.width, compositeCanvas.height);
+        }
+        
+        requestAnimationFrame(drawFrame);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      setRecordedChunks(chunks);
+      setIsRecording(true);
+      
+      mediaRecorder.start();
+      drawFrame();
+      
+      setStatusMessage('解析動画の録画を開始しました');
+      
+    } catch (error) {
+      console.error('Recording error:', error);
+      alert('録画の開始に失敗しました');
+      setIsRecording(false);
+    }
+  }, []);
+
+  // 解析動画の録画停止
+  const stopVideoRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      console.log('🛑 Stopping video recording...');
+      mediaRecorderRef.current.stop();
+      setStatusMessage('解析動画の録画を停止しています...');
+    }
+  }, [isRecording]);
 
   // JSXレンダリング部分
   return (
@@ -1068,6 +1178,35 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   </svg>
                   <span>再読み込み</span>
                 </button>
+                
+                {/* 解析動画録画ボタン */}
+                <button 
+                  className={`px-4 py-3 rounded-lg border flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] ${
+                    isRecording 
+                      ? 'bg-red-100 border-red-400 text-red-800' 
+                      : 'bg-green-100 border-green-400 text-green-800'
+                  }`}
+                  onClick={isRecording ? stopVideoRecording : startVideoRecording}
+                  disabled={!isVideoLoaded || !landmarks}
+                  title={isRecording ? '録画を停止してダウンロード' : 'ポーズ解析付きの動画を録画・ダウンロード'}
+                >
+                  {isRecording ? (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="6" y="6" width="12" height="12" rx="2"/>
+                      </svg>
+                      <span>録画停止</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="3" fill="currentColor"/>
+                      </svg>
+                      <span>解析動画ダウンロード</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {/* 表示オプション */}
@@ -1247,6 +1386,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                           </>
                         )}
                       </div>
+                    </div>
+                  </div>
+                )}
+                
+                {isRecording && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700">録画状態:</span>
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium text-red-700">解析動画録画中</span>
                     </div>
                   </div>
                 )}
