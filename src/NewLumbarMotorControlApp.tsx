@@ -309,7 +309,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [videoRetryCount, setVideoRetryCount] = useState<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   
   // ビデオ要素への参照
@@ -770,7 +769,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       };
 
       mediaRecorderRef.current = mediaRecorder;
-      setRecordedChunks(chunks);
       setIsRecording(true);
       
       mediaRecorder.start();
