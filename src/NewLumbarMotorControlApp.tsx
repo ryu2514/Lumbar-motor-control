@@ -839,15 +839,18 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       },
       statistics: {
         mean: statistics.mean,
-        median: statistics.median,
-        standardDeviation: statistics.standardDeviation,
         min: statistics.min,
         max: statistics.max,
-        range: statistics.range
+        range: statistics.range,
+        normalPercentage: statistics.normalPercentage,
+        cautionPercentage: statistics.cautionPercentage,
+        abnormalPercentage: statistics.abnormalPercentage
       },
       rawData: timeSeriesData.data.map(point => ({
         timestamp: point.timestamp,
-        value: point.value,
+        time: point.time,
+        lumbarAngle: point.lumbarAngle,
+        status: point.status,
         relativeTime: point.timestamp - (timeSeriesData.data[0]?.timestamp || 0)
       })),
       currentMetrics: metrics.map(metric => ({
