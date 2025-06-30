@@ -309,8 +309,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordedVideoBlob, setRecordedVideoBlob] = useState<Blob | null>(null);
-  const [convertedMp4Blob, setConvertedMp4Blob] = useState<Blob | null>(null);
-  const [isConverting, setIsConverting] = useState<boolean>(false);
   const [preferredVideoFormat, setPreferredVideoFormat] = useState<'auto' | 'mp4' | 'webm'>('auto');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
@@ -700,7 +698,44 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, []);
 
-  // MP4としてダウンロード（拡張子変更）
+  // WebMをMP4形式として保存（注意メッセージ付き）
+  const saveAsMP4Format = useCallback(() => {
+    if (!recordedVideoBlob) {
+      alert('録画データがありません。');
+      return;
+    }
+
+    // MP4形式として保存するための新しいBlob
+    const mp4Blob = new Blob([recordedVideoBlob], { type: 'video/mp4' });
+    
+    try {
+      const url = URL.createObjectURL(mp4Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp4`;
+      a.download = filename;
+      a.setAttribute('download', filename);
+      a.style.display = 'none';
+      
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        if (document.body.contains(a)) {
+          document.body.removeChild(a);
+        }
+        URL.revokeObjectURL(url);
+      }, 1000);
+      
+      setStatusMessage(`MP4形式で保存: ${filename} (${(mp4Blob.size / 1024 / 1024).toFixed(2)}MB)`);
+    } catch (error) {
+      console.error('❌ MP4保存エラー:', error);
+      alert(`MP4保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, [recordedVideoBlob]);
+
+  // MP4としてダウンロード（拡張子変更のみ）
   const downloadAsMP4 = useCallback(() => {
     if (!recordedVideoBlob) {
       alert('録画データがありません。');
@@ -728,7 +763,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         URL.revokeObjectURL(url);
       }, 1000);
       
-      setStatusMessage(`MP4形式でダウンロードを開始しました: ${filename}`);
+      setStatusMessage(`MP4拡張子でダウンロード開始: ${filename} (注意: 実際の形式は${recordedVideoBlob.type})`);
     } catch (error) {
       console.error('❌ MP4ダウンロードエラー:', error);
       alert(`MP4ダウンロードに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
@@ -1050,8 +1085,17 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           // 現在のポーズランドマークを直接描画
           const currentLandmarks = result?.landmarks;
           if (currentLandmarks && currentLandmarks.length > 0) {
+            console.log('🎨 ポーズ描画中:', currentLandmarks.length, '人検出');
             drawPoseOnCanvas(ctx, currentLandmarks, compositeCanvas.width, compositeCanvas.height);
+          } else {
+            console.log('⚠️ ポーズデータなし');
           }
+          
+          // デバッグ用: 録画中であることを示すテキストを追加
+          ctx.fillStyle = 'red';
+          ctx.font = '16px Arial';
+          ctx.fillText('🔴 REC', 10, 30);
+          
         } catch (error) {
           console.warn('フレーム描画エラー:', error);
         }
@@ -1632,20 +1676,20 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   </span>
                 </button>
                 
-                {/* MP4形式ダウンロードボタン（強制） */}
+                {/* MP4形式ダウンロードボタン */}
                 {recordedVideoBlob && !recordedVideoBlob.type.includes('mp4') && (
                   <button 
-                    className="px-4 py-3 rounded-lg border border-blue-400 bg-blue-100 hover:bg-blue-200 flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] text-blue-800"
-                    onClick={downloadAsMP4}
-                    title="WebM形式で録画された動画をMP4拡張子でダウンロード"
+                    className="px-4 py-3 rounded-lg border border-purple-400 bg-purple-100 hover:bg-purple-200 flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] text-purple-800"
+                    onClick={saveAsMP4Format}
+                    title="録画された動画をMP4形式として保存"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                       <polyline points="7,10 12,15 17,10"/>
                       <line x1="12" y1="15" x2="12" y2="3"/>
-                      <circle cx="12" cy="12" r="2"/>
+                      <polygon points="9,11 15,11 15,13 9,13"/>
                     </svg>
-                    <span>MP4形式でダウンロード</span>
+                    <span>MP4形式で保存</span>
                   </button>
                 )}
                 
