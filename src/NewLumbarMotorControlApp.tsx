@@ -309,6 +309,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordedVideoBlob, setRecordedVideoBlob] = useState<Blob | null>(null);
+  const [preferredVideoFormat, setPreferredVideoFormat] = useState<'auto' | 'mp4' | 'webm'>('auto');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   
@@ -727,7 +728,15 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       a.href = url;
       
       // ファイル拡張子を適切に設定
-      const extension = recordedVideoBlob.type.includes('mp4') ? 'mp4' : 'webm';
+      const getFileExtension = (mimeType: string) => {
+        if (mimeType.includes('mp4')) return 'mp4';
+        if (mimeType.includes('webm')) return 'webm';
+        if (mimeType.includes('avi')) return 'avi';
+        if (mimeType.includes('mov')) return 'mov';
+        return 'webm'; // デフォルト
+      };
+      
+      const extension = getFileExtension(recordedVideoBlob.type);
       const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
       a.download = filename;
       
@@ -808,22 +817,67 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       const stream = compositeCanvas.captureStream(30); // 30fps
       
       // サポートされているMIMEタイプを確認
-      const supportedTypes = [
-        'video/webm; codecs=vp9',
-        'video/webm; codecs=vp8',
-        'video/webm',
-        'video/mp4'
-      ];
-      
-      let selectedMimeType = 'video/webm';
-      for (const type of supportedTypes) {
-        if (MediaRecorder.isTypeSupported(type)) {
-          selectedMimeType = type;
-          break;
+      const getPreferredMimeType = () => {
+        const mp4Types = [
+          'video/mp4; codecs=h264',
+          'video/mp4; codecs=avc1.42E01E,mp4a.40.2',
+          'video/mp4'
+        ];
+        
+        const webmTypes = [
+          'video/webm; codecs=vp9',
+          'video/webm; codecs=vp8',
+          'video/webm'
+        ];
+        
+        // ユーザーの希望形式に基づいて優先順位を決定
+        if (preferredVideoFormat === 'mp4') {
+          // MP4を優先
+          for (const type of mp4Types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
+          // MP4がサポートされていない場合はWebMにフォールバック
+          for (const type of webmTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
+        } else if (preferredVideoFormat === 'webm') {
+          // WebMを優先
+          for (const type of webmTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
+          // WebMがサポートされていない場合はMP4にフォールバック
+          for (const type of mp4Types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
+        } else {
+          // auto: 最適な形式を自動選択（MP4を優先）
+          const allTypes = [...mp4Types, ...webmTypes];
+          for (const type of allTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+              return type;
+            }
+          }
         }
-      }
+        
+        return 'video/webm'; // フォールバック
+      };
       
-      console.log('使用するMIMEタイプ:', selectedMimeType);
+      const selectedMimeType = getPreferredMimeType();
+      
+      console.log('使用するMIMEタイプ:', selectedMimeType, {
+        preferredFormat: preferredVideoFormat,
+        isMP4: selectedMimeType.includes('mp4'),
+        isWebM: selectedMimeType.includes('webm')
+      });
+      
       const mediaRecorder = new MediaRecorder(stream, { 
         mimeType: selectedMimeType 
       });
@@ -1514,8 +1568,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   </svg>
                   <span>
                     {recordedVideoBlob 
-                      ? `解析動画ダウンロード (${(recordedVideoBlob.size / 1024 / 1024).toFixed(2)}MB)` 
-                      : '録画準備中...'}
+                      ? `解析動画ダウンロード (${(recordedVideoBlob.size / 1024 / 1024).toFixed(2)}MB, ${recordedVideoBlob.type.includes('mp4') ? 'MP4' : 'WebM'})` 
+                      : `録画準備中... (${preferredVideoFormat === 'auto' ? 'MP4優先' : preferredVideoFormat.toUpperCase()})`}
                   </span>
                 </button>
                 
@@ -1551,6 +1605,29 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   </svg>
                   <span>{recordedVideoBlob && timeSeriesData.data.length > 0 ? 'すべてダウンロード' : '準備中...'}</span>
                 </button>
+              </div>
+
+              {/* 録画設定 */}
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-sm text-gray-600 font-medium mr-2">録画形式:</span>
+                
+                <select 
+                  value={preferredVideoFormat}
+                  onChange={(e) => setPreferredVideoFormat(e.target.value as 'auto' | 'mp4' | 'webm')}
+                  className="px-3 py-1 rounded border border-gray-300 text-sm bg-white"
+                >
+                  <option value="auto">自動選択 (MP4優先)</option>
+                  <option value="mp4">MP4形式</option>
+                  <option value="webm">WebM形式</option>
+                </select>
+                
+                <span className="text-xs text-gray-500">
+                  {preferredVideoFormat === 'mp4' && MediaRecorder.isTypeSupported('video/mp4') 
+                    ? '✓ MP4対応' 
+                    : preferredVideoFormat === 'mp4' 
+                    ? '⚠ MP4非対応(WebMで録画)' 
+                    : '✓ WebM対応'}
+                </span>
               </div>
 
               {/* 表示オプション */}
