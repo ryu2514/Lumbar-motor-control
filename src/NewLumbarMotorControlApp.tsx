@@ -710,7 +710,11 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     const url = URL.createObjectURL(recordedVideoBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+    
+    // ファイル拡張子を適切に設定
+    const extension = recordedVideoBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    a.download = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
+    
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -728,11 +732,10 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     try {
       // 動画要素とポーズ描画キャンバスを取得
       const video = videoRef.current;
-      const canvasOverlay = document.querySelector('canvas');
+      const canvasOverlay = video.parentElement?.querySelector('canvas');
       
       if (!canvasOverlay) {
-        alert('ポーズ描画が表示されていません');
-        return;
+        console.warn('ポーズ描画キャンバスが見つかりません - ポーズ無しで録画を開始します');
       }
 
       // 合成用のキャンバスを作成
@@ -755,8 +758,26 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
       // MediaRecorderでキャンバスストリームを録画
       const stream = compositeCanvas.captureStream(30); // 30fps
+      
+      // サポートされているMIMEタイプを確認
+      const supportedTypes = [
+        'video/webm; codecs=vp9',
+        'video/webm; codecs=vp8',
+        'video/webm',
+        'video/mp4'
+      ];
+      
+      let selectedMimeType = 'video/webm';
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          selectedMimeType = type;
+          break;
+        }
+      }
+      
+      console.log('使用するMIMEタイプ:', selectedMimeType);
       const mediaRecorder = new MediaRecorder(stream, { 
-        mimeType: 'video/webm; codecs=vp9' 
+        mimeType: selectedMimeType 
       });
       
       // recordingChunksRef.current を初期化
@@ -770,23 +791,33 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
       mediaRecorder.onstop = () => {
         console.log('📹 Recording stopped, saving video data...');
-        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        const blob = new Blob(recordingChunksRef.current, { type: selectedMimeType });
         setRecordedVideoBlob(blob);
         setStatusMessage('解析動画の準備が完了しました');
         setIsRecording(false);
         recordingChunksRef.current = []; // チャンクをクリア
       };
 
+      mediaRecorder.onerror = (event) => {
+        console.error('📹 Recording error:', event);
+        setStatusMessage('録画エラーが発生しました');
+        setIsRecording(false);
+      };
+
       // フレーム描画ループ
       const drawFrame = () => {
         if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
         
-        // 動画フレームを描画
-        ctx.drawImage(video, 0, 0, compositeCanvas.width, compositeCanvas.height);
-        
-        // ポーズ描画オーバーレイを合成
-        if (canvasOverlay) {
-          ctx.drawImage(canvasOverlay, 0, 0, compositeCanvas.width, compositeCanvas.height);
+        try {
+          // 動画フレームを描画
+          ctx.drawImage(video, 0, 0, compositeCanvas.width, compositeCanvas.height);
+          
+          // ポーズ描画オーバーレイを合成（利用可能な場合のみ）
+          if (canvasOverlay && canvasOverlay.width > 0 && canvasOverlay.height > 0) {
+            ctx.drawImage(canvasOverlay, 0, 0, compositeCanvas.width, compositeCanvas.height);
+          }
+        } catch (error) {
+          console.warn('フレーム描画エラー:', error);
         }
         
         requestAnimationFrame(drawFrame);
@@ -1081,9 +1112,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 />
                 
                 {/* ポーズ描画オーバーレイ */}
-                {isVideoLoaded && landmarks && (
+                {isVideoLoaded && landmarks && landmarks.length > 0 && (
                   <PoseVisualizer 
-                    landmarks={landmarks as NormalizedLandmark[][]} 
+                    landmarks={landmarks} 
                     videoWidth={videoRef.current?.videoWidth || 640}
                     videoHeight={videoRef.current?.videoHeight || 480}
                   />
@@ -1213,9 +1244,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   />
                   
                   {/* デモ動画のポーズ描画オーバーレイ */}
-                  {isDemoVideoLoaded && demoLandmarks && (
+                  {isDemoVideoLoaded && demoLandmarks && demoLandmarks.length > 0 && (
                     <PoseVisualizer 
-                      landmarks={demoLandmarks as NormalizedLandmark[][]} 
+                      landmarks={demoLandmarks} 
                       videoWidth={demoVideoRef.current?.videoWidth || 640}
                       videoHeight={demoVideoRef.current?.videoHeight || 480}
                     />
@@ -1530,6 +1561,23 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     </div>
                   </div>
                 )}
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">ポーズ検出:</span>
+                  <div className="flex items-center space-x-1">
+                    {landmarks && landmarks.length > 0 ? (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-green-700">検出中 ({landmarks.length}人)</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <span className="text-sm font-medium text-gray-600">未検出</span>
+                      </>
+                    )}
+                  </div>
+                </div>
                 
                 {isRecording && (
                   <div className="flex items-center justify-between">
