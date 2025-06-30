@@ -780,13 +780,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
 
     try {
-      // 動画要素とポーズ描画キャンバスを取得
+      // 動画要素を取得
       const video = videoRef.current;
-      const canvasOverlay = video.parentElement?.querySelector('canvas');
-      
-      if (!canvasOverlay) {
-        console.warn('ポーズ描画キャンバスが見つかりません - ポーズ無しで録画を開始します');
-      }
 
       // 合成用のキャンバスを作成
       const compositeCanvas = document.createElement('canvas');
@@ -801,9 +796,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       compositeCanvas.width = video.videoWidth || 640;
       compositeCanvas.height = video.videoHeight || 480;
 
-      console.log('🎥 Starting video recording with overlay...', {
+      console.log('🎥 Starting video recording with pose overlay...', {
         videoWidth: compositeCanvas.width,
-        videoHeight: compositeCanvas.height
+        videoHeight: compositeCanvas.height,
+        hasLandmarks: !!(landmarks && landmarks.length > 0),
+        landmarksCount: landmarks?.length || 0,
+        selectedMimeType
       });
 
       // MediaRecorderでキャンバスストリームを録画
@@ -871,17 +869,75 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         setIsRecording(false);
       };
 
+      // ポーズ描画関数（録画用）
+      const drawPoseOnCanvas = (ctx: CanvasRenderingContext2D, landmarks: any[][], width: number, height: number) => {
+        if (!landmarks || landmarks.length === 0) return;
+        
+        // 最初の人物のランドマーク
+        const personLandmarks = landmarks[0];
+        if (!personLandmarks) return;
+        
+        // 接続線の定義（MediaPipe BlazePose GHUMモデルのスケルトン）
+        const connections = [
+          [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], // 顔と首
+          [9, 10], // 肩
+          [11, 13], [13, 15], [15, 17], [17, 19], [19, 15], [15, 21], // 左腕
+          [12, 14], [14, 16], [16, 18], [18, 20], [20, 16], [16, 22], // 右腕
+          [11, 23], [12, 24], [23, 24], // 上半身
+          [23, 25], [25, 27], [27, 29], [29, 31], [31, 27], // 左足
+          [24, 26], [26, 28], [28, 30], [30, 32], [32, 28]  // 右足
+        ];
+
+        // 接続線を描画
+        ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
+        ctx.lineWidth = 2;
+
+        connections.forEach(([start, end]) => {
+          if (personLandmarks[start] && personLandmarks[end] && 
+              (!personLandmarks[start].visibility || personLandmarks[start].visibility > 0.5) &&
+              (!personLandmarks[end].visibility || personLandmarks[end].visibility > 0.5)) {
+            ctx.beginPath();
+            ctx.moveTo(
+              personLandmarks[start].x * width,
+              personLandmarks[start].y * height
+            );
+            ctx.lineTo(
+              personLandmarks[end].x * width,
+              personLandmarks[end].y * height
+            );
+            ctx.stroke();
+          }
+        });
+
+        // ランドマーク（点）を描画
+        personLandmarks.forEach((landmark: any) => {
+          const x = landmark.x * width;
+          const y = landmark.y * height;
+          
+          if (!landmark.visibility || landmark.visibility > 0.5) {
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        });
+      };
+
       // フレーム描画ループ
       const drawFrame = () => {
         if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
         
         try {
+          // キャンバスをクリア
+          ctx.clearRect(0, 0, compositeCanvas.width, compositeCanvas.height);
+          
           // 動画フレームを描画
           ctx.drawImage(video, 0, 0, compositeCanvas.width, compositeCanvas.height);
           
-          // ポーズ描画オーバーレイを合成（利用可能な場合のみ）
-          if (canvasOverlay && canvasOverlay.width > 0 && canvasOverlay.height > 0) {
-            ctx.drawImage(canvasOverlay, 0, 0, compositeCanvas.width, compositeCanvas.height);
+          // 現在のポーズランドマークを直接描画
+          const currentLandmarks = result?.landmarks;
+          if (currentLandmarks && currentLandmarks.length > 0) {
+            drawPoseOnCanvas(ctx, currentLandmarks, compositeCanvas.width, compositeCanvas.height);
           }
         } catch (error) {
           console.warn('フレーム描画エラー:', error);
@@ -896,7 +952,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       mediaRecorder.start();
       drawFrame();
       
-      setStatusMessage('解析動画の自動録画を開始しました（バックグラウンド）');
+      const hasPoser = !!(landmarks && landmarks.length > 0);
+      setStatusMessage(`解析動画の自動録画を開始しました（ポーズ検出: ${hasPoser ? 'あり' : 'なし'}）`);
       
     } catch (error) {
       console.error('Recording error:', error);
