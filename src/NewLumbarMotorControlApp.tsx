@@ -309,7 +309,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [videoRetryCount, setVideoRetryCount] = useState<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordedVideoBlob, setRecordedVideoBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
   
   // ビデオ要素への参照
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -433,11 +435,21 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       console.log('Starting auto recording...');
       startRecording();
       setStatusMessage('動画再生開始 - 角度記録を自動開始しました');
+      
+      // 動画解析録画も自動開始
+      if (!isRecording) {
+        startVideoRecording();
+      }
     } else if (!isPlaying && timeSeriesData.isRecording) {
       // 動画が停止されたら記録も停止
       console.log('Stopping auto recording...');
       stopRecording();
       setStatusMessage('動画停止 - 角度記録を停止しました');
+      
+      // 動画解析録画も停止（但し録画データは保持）
+      if (isRecording) {
+        stopVideoRecording();
+      }
     }
   }, [isPlaying, isVideoLoaded, isModelLoaded]);
 
@@ -687,6 +699,26 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   }, []);
 
   // 解析動画の録画開始
+  // 即座ダウンロード機能
+  const downloadRecordedVideo = useCallback(() => {
+    if (!recordedVideoBlob) {
+      alert('まだ録画されたデータがありません。動画を再生してから試してください。');
+      return;
+    }
+
+    // ダウンロードリンクを作成
+    const url = URL.createObjectURL(recordedVideoBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    setStatusMessage('解析動画のダウンロードが完了しました');
+  }, [recordedVideoBlob]);
+
   const startVideoRecording = useCallback(async () => {
     if (!videoRef.current) {
       alert('動画が読み込まれていません');
@@ -727,30 +759,22 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         mimeType: 'video/webm; codecs=vp9' 
       });
       
-      const chunks: Blob[] = [];
+      // recordingChunksRef.current を初期化
+      recordingChunksRef.current = [];
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          chunks.push(event.data);
+          recordingChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = () => {
-        console.log('📹 Recording stopped, creating download...');
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        
-        // ダウンロードリンクを作成
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        setStatusMessage('解析動画のダウンロードが完了しました');
+        console.log('📹 Recording stopped, saving video data...');
+        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        setRecordedVideoBlob(blob);
+        setStatusMessage('解析動画の準備が完了しました');
         setIsRecording(false);
+        recordingChunksRef.current = []; // チャンクをクリア
       };
 
       // フレーム描画ループ
@@ -774,7 +798,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       mediaRecorder.start();
       drawFrame();
       
-      setStatusMessage('解析動画の録画を開始しました');
+      setStatusMessage('解析動画の自動録画を開始しました（バックグラウンド）');
       
     } catch (error) {
       console.error('Recording error:', error);
@@ -791,6 +815,99 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       setStatusMessage('解析動画の録画を停止しています...');
     }
   }, [isRecording]);
+
+  // 解析データをダウンロード
+  const downloadAnalysisData = useCallback(() => {
+    const statistics = getStatistics();
+    
+    if (!statistics || timeSeriesData.data.length === 0) {
+      alert('解析データがありません。動画を再生して記録を開始してください。');
+      return;
+    }
+
+    // 解析データオブジェクトを作成
+    const analysisData = {
+      testType,
+      testLabel: TEST_LABELS[testType],
+      timestamp: new Date().toISOString(),
+      duration: timeSeriesData.duration,
+      recordingInfo: {
+        isRecording: timeSeriesData.isRecording,
+        dataPoints: timeSeriesData.data.length,
+        startTime: timeSeriesData.data.length > 0 ? timeSeriesData.data[0].timestamp : null,
+        endTime: timeSeriesData.data.length > 0 ? timeSeriesData.data[timeSeriesData.data.length - 1].timestamp : null
+      },
+      statistics: {
+        mean: statistics.mean,
+        median: statistics.median,
+        standardDeviation: statistics.standardDeviation,
+        min: statistics.min,
+        max: statistics.max,
+        range: statistics.range
+      },
+      rawData: timeSeriesData.data.map(point => ({
+        timestamp: point.timestamp,
+        value: point.value,
+        relativeTime: point.timestamp - (timeSeriesData.data[0]?.timestamp || 0)
+      })),
+      currentMetrics: metrics.map(metric => ({
+        label: metric.label,
+        value: metric.value,
+        unit: metric.unit,
+        normalRange: metric.normalRange,
+        status: metric.status,
+        description: metric.description
+      })),
+      videoInfo: {
+        hasUploadedVideo: !!userUploadedVideo,
+        useUploadedVideo,
+        videoWidth: videoRef.current?.videoWidth || 0,
+        videoHeight: videoRef.current?.videoHeight || 0,
+        videoUrl: useUploadedVideo ? 'user_uploaded' : DEMO_VIDEOS[testType]
+      }
+    };
+
+    // JSONデータをBlobとして作成
+    const jsonData = JSON.stringify(analysisData, null, 2);
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    
+    // ダウンロードリンクを作成
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lumbar-analysis-${testType}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    setStatusMessage('解析データのダウンロードが完了しました');
+  }, [testType, timeSeriesData, getStatistics, metrics, userUploadedVideo, useUploadedVideo]);
+
+  // すべての解析結果をまとめてダウンロード
+  const downloadAllAnalysisResults = useCallback(() => {
+    const statistics = getStatistics();
+    
+    if (!statistics || timeSeriesData.data.length === 0) {
+      alert('解析データがありません。動画を再生して記録を開始してください。');
+      return;
+    }
+
+    if (!recordedVideoBlob) {
+      alert('解析動画がありません。動画を再生してから試してください。');
+      return;
+    }
+
+    // 解析データをダウンロード
+    downloadAnalysisData();
+    
+    // 少し遅延してから解析動画をダウンロード
+    setTimeout(() => {
+      downloadRecordedVideo();
+    }, 500);
+    
+    setStatusMessage('すべての解析結果のダウンロードを開始しました');
+  }, [downloadAnalysisData, downloadRecordedVideo, getStatistics, timeSeriesData, recordedVideoBlob]);
 
   // JSXレンダリング部分
   return (
@@ -1184,26 +1301,49 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       ? 'bg-red-100 border-red-400 text-red-800' 
                       : 'bg-green-100 border-green-400 text-green-800'
                   }`}
-                  onClick={isRecording ? stopVideoRecording : startVideoRecording}
-                  disabled={!isVideoLoaded || !landmarks}
-                  title={isRecording ? '録画を停止してダウンロード' : 'ポーズ解析付きの動画を録画・ダウンロード'}
+                  onClick={downloadRecordedVideo}
+                  disabled={!recordedVideoBlob}
+                  title={recordedVideoBlob ? '解析動画をすぐにダウンロード' : '動画を再生すると自動録画されダウンロード可能になります'}
                 >
-                  {isRecording ? (
-                    <>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="6" y="6" width="12" height="12" rx="2"/>
-                      </svg>
-                      <span>録画停止</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <circle cx="12" cy="12" r="3" fill="currentColor"/>
-                      </svg>
-                      <span>解析動画ダウンロード</span>
-                    </>
-                  )}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  <span>{recordedVideoBlob ? '解析動画ダウンロード' : '録画準備中...'}</span>
+                </button>
+                
+                {/* 解析データダウンロードボタン */}
+                <button 
+                  className="px-4 py-3 rounded-lg border border-blue-400 bg-blue-100 hover:bg-blue-200 flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] text-blue-800"
+                  onClick={downloadAnalysisData}
+                  disabled={timeSeriesData.data.length === 0}
+                  title={timeSeriesData.data.length > 0 ? '解析データ（JSON）をダウンロード' : '動画を再生して記録を開始してください'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10,9 9,9 8,9"/>
+                  </svg>
+                  <span>{timeSeriesData.data.length > 0 ? '解析データ(JSON)' : 'データ記録待ち'}</span>
+                </button>
+                
+                {/* すべての解析結果ダウンロードボタン */}
+                <button 
+                  className="px-4 py-3 rounded-lg border border-purple-400 bg-purple-100 hover:bg-purple-200 flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] text-purple-800"
+                  onClick={downloadAllAnalysisResults}
+                  disabled={!recordedVideoBlob || timeSeriesData.data.length === 0}
+                  title={recordedVideoBlob && timeSeriesData.data.length > 0 ? '解析動画とデータをまとめてダウンロード' : '動画を再生して記録してください'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7,10 12,15 17,10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <span>{recordedVideoBlob && timeSeriesData.data.length > 0 ? 'すべてダウンロード' : '準備中...'}</span>
                 </button>
               </div>
 
