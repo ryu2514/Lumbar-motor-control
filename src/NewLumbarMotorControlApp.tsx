@@ -79,7 +79,7 @@ const TestSelector: React.FC<{
 
 // 姿勢ビジュアライザー
 const PoseVisualizer: React.FC<{
-  landmarks: NormalizedLandmark[][] | null;
+  landmarks: any[][] | null;
   videoWidth: number;
   videoHeight: number;
 }> = ({ landmarks, videoWidth, videoHeight }) => {
@@ -124,8 +124,8 @@ const PoseVisualizer: React.FC<{
 
       connections.forEach(([start, end]) => {
         if (personLandmarks[start] && personLandmarks[end] && 
-            personLandmarks[start].visibility && personLandmarks[end].visibility &&
-            personLandmarks[start].visibility > 0.5 && personLandmarks[end].visibility > 0.5) {
+            (!personLandmarks[start].visibility || personLandmarks[start].visibility > 0.5) &&
+            (!personLandmarks[end].visibility || personLandmarks[end].visibility > 0.5)) {
           ctx.beginPath();
           ctx.moveTo(
             personLandmarks[start].x * videoWidth,
@@ -149,7 +149,7 @@ const PoseVisualizer: React.FC<{
         const y = landmark.y * videoHeight;
         
         // 可視性が低いランドマークは描画しない
-        if (landmark.visibility && landmark.visibility > 0.5) {
+        if (!landmark.visibility || landmark.visibility > 0.5) {
           ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
           ctx.beginPath();
           ctx.arc(x, y, 5, 0, 2 * Math.PI);
