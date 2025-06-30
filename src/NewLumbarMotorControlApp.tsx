@@ -700,26 +700,77 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   // 解析動画の録画開始
   // 即座ダウンロード機能
   const downloadRecordedVideo = useCallback(() => {
+    console.log('🔽 ダウンロード開始:', { 
+      hasBlob: !!recordedVideoBlob, 
+      blobSize: recordedVideoBlob?.size,
+      blobType: recordedVideoBlob?.type
+    });
+    
     if (!recordedVideoBlob) {
+      console.error('❌ 録画データがありません');
       alert('まだ録画されたデータがありません。動画を再生してから試してください。');
       return;
     }
 
-    // ダウンロードリンクを作成
-    const url = URL.createObjectURL(recordedVideoBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    
-    // ファイル拡張子を適切に設定
-    const extension = recordedVideoBlob.type.includes('mp4') ? 'mp4' : 'webm';
-    a.download = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
-    
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    setStatusMessage('解析動画のダウンロードが完了しました');
+    if (recordedVideoBlob.size === 0) {
+      console.error('❌ 録画データのサイズが0です');
+      alert('録画データが空です。動画を再生してから再試行してください。');
+      return;
+    }
+
+    try {
+      // ダウンロードリンクを作成
+      const url = URL.createObjectURL(recordedVideoBlob);
+      console.log('📎 Blob URL作成:', url);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // ファイル拡張子を適切に設定
+      const extension = recordedVideoBlob.type.includes('mp4') ? 'mp4' : 'webm';
+      const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
+      a.download = filename;
+      
+      console.log('📁 ダウンロードファイル名:', filename);
+      
+      // ダウンロード属性を強制設定
+      a.setAttribute('download', filename);
+      a.style.display = 'none';
+      
+      document.body.appendChild(a);
+      
+      // クリックイベントを強制的に発生
+      console.log('🖱️ ダウンロードクリック実行');
+      
+      // ブラウザ互換性のための複数の試行
+      try {
+        a.click();
+      } catch (clickError) {
+        console.warn('⚠️ 通常のクリックが失敗、MouseEventで再試行');
+        // MouseEventを使用した代替方法
+        const event = new MouseEvent('click', {
+          view: window,
+          bubbles: true,
+          cancelable: true
+        });
+        a.dispatchEvent(event);
+      }
+      
+      // 少し遅延してからクリーンアップ
+      setTimeout(() => {
+        if (document.body.contains(a)) {
+          document.body.removeChild(a);
+        }
+        URL.revokeObjectURL(url);
+        console.log('🧹 クリーンアップ完了');
+      }, 1000); // 1秒に延長
+      
+      setStatusMessage(`解析動画のダウンロードを開始しました: ${filename}`);
+      
+    } catch (error) {
+      console.error('❌ ダウンロードエラー:', error);
+      alert(`ダウンロードに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }, [recordedVideoBlob]);
 
   const startVideoRecording = useCallback(async () => {
@@ -789,10 +840,27 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       };
 
       mediaRecorder.onstop = () => {
-        console.log('📹 Recording stopped, saving video data...');
+        console.log('📹 Recording stopped, saving video data...', {
+          chunks: recordingChunksRef.current.length,
+          totalSize: recordingChunksRef.current.reduce((total, chunk) => total + chunk.size, 0)
+        });
+        
+        if (recordingChunksRef.current.length === 0) {
+          console.warn('⚠️ 録画チャンクが空です');
+          setStatusMessage('録画データが見つかりません');
+          setIsRecording(false);
+          return;
+        }
+        
         const blob = new Blob(recordingChunksRef.current, { type: selectedMimeType });
+        console.log('📹 ビデオBlob作成:', {
+          size: blob.size,
+          type: blob.type,
+          chunks: recordingChunksRef.current.length
+        });
+        
         setRecordedVideoBlob(blob);
-        setStatusMessage('解析動画の準備が完了しました');
+        setStatusMessage(`解析動画の準備が完了しました (${(blob.size / 1024 / 1024).toFixed(2)}MB)`);
         setIsRecording(false);
         recordingChunksRef.current = []; // チャンクをクリア
       };
@@ -848,73 +916,117 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // 解析データをダウンロード
   const downloadAnalysisData = useCallback(() => {
+    console.log('📊 解析データダウンロード開始');
     const statistics = getStatistics();
     
     if (!statistics || timeSeriesData.data.length === 0) {
+      console.error('❌ 解析データが不足');
       alert('解析データがありません。動画を再生して記録を開始してください。');
       return;
     }
 
-    // 解析データオブジェクトを作成
-    const analysisData = {
-      testType,
-      testLabel: TEST_LABELS[testType],
-      timestamp: new Date().toISOString(),
-      duration: timeSeriesData.duration,
-      recordingInfo: {
-        isRecording: timeSeriesData.isRecording,
-        dataPoints: timeSeriesData.data.length,
-        startTime: timeSeriesData.data.length > 0 ? timeSeriesData.data[0].timestamp : null,
-        endTime: timeSeriesData.data.length > 0 ? timeSeriesData.data[timeSeriesData.data.length - 1].timestamp : null
-      },
-      statistics: {
-        mean: statistics.mean,
-        min: statistics.min,
-        max: statistics.max,
-        range: statistics.range,
-        normalPercentage: statistics.normalPercentage,
-        cautionPercentage: statistics.cautionPercentage,
-        abnormalPercentage: statistics.abnormalPercentage
-      },
-      rawData: timeSeriesData.data.map(point => ({
-        timestamp: point.timestamp,
-        time: point.time,
-        lumbarAngle: point.lumbarAngle,
-        status: point.status,
-        relativeTime: point.timestamp - (timeSeriesData.data[0]?.timestamp || 0)
-      })),
-      currentMetrics: metrics.map(metric => ({
-        label: metric.label,
-        value: metric.value,
-        unit: metric.unit,
-        normalRange: metric.normalRange,
-        status: metric.status,
-        description: metric.description
-      })),
-      videoInfo: {
-        hasUploadedVideo: !!userUploadedVideo,
-        useUploadedVideo,
-        videoWidth: videoRef.current?.videoWidth || 0,
-        videoHeight: videoRef.current?.videoHeight || 0,
-        videoUrl: useUploadedVideo ? 'user_uploaded' : DEMO_VIDEOS[testType]
-      }
-    };
+    try {
+      // 解析データオブジェクトを作成
+      const analysisData = {
+        testType,
+        testLabel: TEST_LABELS[testType],
+        timestamp: new Date().toISOString(),
+        duration: timeSeriesData.duration,
+        recordingInfo: {
+          isRecording: timeSeriesData.isRecording,
+          dataPoints: timeSeriesData.data.length,
+          startTime: timeSeriesData.data.length > 0 ? timeSeriesData.data[0].timestamp : null,
+          endTime: timeSeriesData.data.length > 0 ? timeSeriesData.data[timeSeriesData.data.length - 1].timestamp : null
+        },
+        statistics: {
+          mean: statistics.mean,
+          min: statistics.min,
+          max: statistics.max,
+          range: statistics.range,
+          normalPercentage: statistics.normalPercentage,
+          cautionPercentage: statistics.cautionPercentage,
+          abnormalPercentage: statistics.abnormalPercentage
+        },
+        rawData: timeSeriesData.data.map(point => ({
+          timestamp: point.timestamp,
+          time: point.time,
+          lumbarAngle: point.lumbarAngle,
+          status: point.status,
+          relativeTime: point.timestamp - (timeSeriesData.data[0]?.timestamp || 0)
+        })),
+        currentMetrics: metrics.map(metric => ({
+          label: metric.label,
+          value: metric.value,
+          unit: metric.unit,
+          normalRange: metric.normalRange,
+          status: metric.status,
+          description: metric.description
+        })),
+        videoInfo: {
+          hasUploadedVideo: !!userUploadedVideo,
+          useUploadedVideo,
+          videoWidth: videoRef.current?.videoWidth || 0,
+          videoHeight: videoRef.current?.videoHeight || 0,
+          videoUrl: useUploadedVideo ? 'user_uploaded' : DEMO_VIDEOS[testType]
+        }
+      };
 
-    // JSONデータをBlobとして作成
-    const jsonData = JSON.stringify(analysisData, null, 2);
-    const blob = new Blob([jsonData], { type: 'application/json' });
-    
-    // ダウンロードリンクを作成
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lumbar-analysis-${testType}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    setStatusMessage('解析データのダウンロードが完了しました');
+      console.log('📊 解析データ作成完了:', {
+        dataPoints: analysisData.recordingInfo.dataPoints,
+        testType: analysisData.testType,
+        statisticsKeys: Object.keys(analysisData.statistics)
+      });
+
+      // JSONデータをBlobとして作成
+      const jsonData = JSON.stringify(analysisData, null, 2);
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      
+      console.log('📄 JSONブロブ作成:', {
+        size: blob.size,
+        type: blob.type
+      });
+      
+      // ダウンロードリンクを作成
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const filename = `lumbar-analysis-${testType}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+      
+      a.href = url;
+      a.download = filename;
+      a.setAttribute('download', filename);
+      a.style.display = 'none';
+      
+      document.body.appendChild(a);
+      
+      console.log('🖱️ JSONダウンロードクリック実行');
+      
+      // ブラウザ互換性のための複数の試行
+      try {
+        a.click();
+      } catch (clickError) {
+        console.warn('⚠️ JSON通常のクリックが失敗、MouseEventで再試行');
+        const event = new MouseEvent('click', {
+          view: window,
+          bubbles: true,
+          cancelable: true
+        });
+        a.dispatchEvent(event);
+      }
+      
+      setTimeout(() => {
+        if (document.body.contains(a)) {
+          document.body.removeChild(a);
+        }
+        URL.revokeObjectURL(url);
+        console.log('🧹 JSON クリーンアップ完了');
+      }, 1000);
+      
+      setStatusMessage(`解析データのダウンロードを開始しました: ${filename}`);
+      
+    } catch (error) {
+      console.error('❌ 解析データダウンロードエラー:', error);
+      alert(`解析データのダウンロードに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }, [testType, timeSeriesData, getStatistics, metrics, userUploadedVideo, useUploadedVideo]);
 
   // すべての解析結果をまとめてダウンロード
@@ -1343,7 +1455,11 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     <polyline points="7,10 12,15 17,10"/>
                     <line x1="12" y1="15" x2="12" y2="3"/>
                   </svg>
-                  <span>{recordedVideoBlob ? '解析動画ダウンロード' : '録画準備中...'}</span>
+                  <span>
+                    {recordedVideoBlob 
+                      ? `解析動画ダウンロード (${(recordedVideoBlob.size / 1024 / 1024).toFixed(2)}MB)` 
+                      : '録画準備中...'}
+                  </span>
                 </button>
                 
                 {/* 解析データダウンロードボタン */}
