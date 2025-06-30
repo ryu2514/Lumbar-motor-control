@@ -698,6 +698,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, []);
 
+  // デバイス検出
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
   // WebMをMP4形式として保存（注意メッセージ付き）
   const saveAsMP4Format = useCallback(() => {
     if (!recordedVideoBlob) {
@@ -710,39 +713,126 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     
     try {
       const url = URL.createObjectURL(mp4Blob);
-      const a = document.createElement('a');
-      a.href = url;
-      
       const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp4`;
-      a.download = filename;
-      a.setAttribute('download', filename);
-      a.style.display = 'none';
       
-      document.body.appendChild(a);
-      a.click();
-      
-      setTimeout(() => {
-        if (document.body.contains(a)) {
-          document.body.removeChild(a);
+      if (isMobile) {
+        // モバイルデバイスの場合：新しいタブで開く
+        console.log('📱 モバイルデバイス検出: 新しいタブで動画を開きます');
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head>
+                <title>解析動画ダウンロード</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  body { 
+                    margin: 0; 
+                    padding: 20px; 
+                    font-family: Arial, sans-serif; 
+                    background: #f5f5f5; 
+                    text-align: center;
+                  }
+                  .container { 
+                    max-width: 400px; 
+                    margin: 0 auto; 
+                    background: white; 
+                    padding: 20px; 
+                    border-radius: 10px; 
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                  }
+                  video { 
+                    width: 100%; 
+                    height: auto; 
+                    border-radius: 8px; 
+                    margin: 20px 0;
+                  }
+                  .download-btn {
+                    background: #007AFF;
+                    color: white;
+                    border: none;
+                    padding: 15px 30px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    margin: 10px;
+                    text-decoration: none;
+                    display: inline-block;
+                  }
+                  .info {
+                    color: #666;
+                    font-size: 14px;
+                    margin: 10px 0;
+                  }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <h2>解析動画</h2>
+                  <video controls>
+                    <source src="${url}" type="video/mp4">
+                    お使いのブラウザは動画再生をサポートしていません。
+                  </video>
+                  <div class="info">
+                    ファイル名: ${filename}<br>
+                    サイズ: ${(mp4Blob.size / 1024 / 1024).toFixed(2)}MB
+                  </div>
+                  <a href="${url}" download="${filename}" class="download-btn">
+                    動画をダウンロード
+                  </a>
+                  <div class="info">
+                    ※ ダウンロードがうまくいかない場合は、動画を長押しして「動画を保存」を選択してください。
+                  </div>
+                </div>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
+        } else {
+          // ポップアップがブロックされた場合のフォールバック
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          link.textContent = 'ダウンロード';
+          alert('新しいタブを開けませんでした。ダウンロードリンクをクリックしてください: ' + filename);
+          document.body.appendChild(link);
+          setTimeout(() => document.body.removeChild(link), 5000);
         }
-        URL.revokeObjectURL(url);
-      }, 1000);
+      } else {
+        // デスクトップの場合：従来の方法
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.setAttribute('download', filename);
+        a.style.display = 'none';
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          if (document.body.contains(a)) {
+            document.body.removeChild(a);
+          }
+          URL.revokeObjectURL(url);
+        }, 1000);
+      }
       
       setStatusMessage(`MP4形式で保存: ${filename} (${(mp4Blob.size / 1024 / 1024).toFixed(2)}MB)`);
     } catch (error) {
       console.error('❌ MP4保存エラー:', error);
       alert(`MP4保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [recordedVideoBlob]);
+  }, [recordedVideoBlob, isMobile]);
 
 
   // 解析動画の録画開始
-  // 即座ダウンロード機能
+  // 即座ダウンロード機能（モバイル対応）
   const downloadRecordedVideo = useCallback(() => {
     console.log('🔽 ダウンロード開始:', { 
       hasBlob: !!recordedVideoBlob, 
       blobSize: recordedVideoBlob?.size,
-      blobType: recordedVideoBlob?.type
+      blobType: recordedVideoBlob?.type,
+      isMobile
     });
     
     if (!recordedVideoBlob) {
@@ -758,13 +848,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
 
     try {
-      // ダウンロードリンクを作成
-      const url = URL.createObjectURL(recordedVideoBlob);
-      console.log('📎 Blob URL作成:', url);
-      
-      const a = document.createElement('a');
-      a.href = url;
-      
       // ユーザーの希望に応じてファイル拡張子を設定
       const getFileExtension = (mimeType: string, preferredFormat: string) => {
         // MP4が希望されている場合は強制的にMP4拡張子を使用
@@ -780,41 +863,74 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       
       const extension = getFileExtension(recordedVideoBlob.type, preferredVideoFormat);
       const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
-      a.download = filename;
       
       console.log('📁 ダウンロードファイル名:', filename);
       
-      // ダウンロード属性を強制設定
-      a.setAttribute('download', filename);
-      a.style.display = 'none';
-      
-      document.body.appendChild(a);
-      
-      // クリックイベントを強制的に発生
-      console.log('🖱️ ダウンロードクリック実行');
-      
-      // ブラウザ互換性のための複数の試行
-      try {
-        a.click();
-      } catch (clickError) {
-        console.warn('⚠️ 通常のクリックが失敗、MouseEventで再試行');
-        // MouseEventを使用した代替方法
-        const event = new MouseEvent('click', {
-          view: window,
-          bubbles: true,
-          cancelable: true
-        });
-        a.dispatchEvent(event);
-      }
-      
-      // 少し遅延してからクリーンアップ
-      setTimeout(() => {
-        if (document.body.contains(a)) {
-          document.body.removeChild(a);
+      if (isMobile) {
+        // モバイルの場合：MP4形式として保存
+        const adjustedBlob = extension === 'mp4' 
+          ? new Blob([recordedVideoBlob], { type: 'video/mp4' })
+          : recordedVideoBlob;
+        
+        const url = URL.createObjectURL(adjustedBlob);
+        
+        const newWindow = window.open();
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head>
+                <title>解析動画ダウンロード</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #f5f5f5; text-align: center; }
+                  .container { max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                  video { width: 100%; height: auto; border-radius: 8px; margin: 20px 0; }
+                  .download-btn { background: #007AFF; color: white; border: none; padding: 15px 30px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px; text-decoration: none; display: inline-block; }
+                  .info { color: #666; font-size: 14px; margin: 10px 0; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <h2>解析動画 (${extension.toUpperCase()}形式)</h2>
+                  <video controls>
+                    <source src="${url}" type="video/${extension}">
+                    お使いのブラウザは動画再生をサポートしていません。
+                  </video>
+                  <div class="info">
+                    ファイル名: ${filename}<br>
+                    サイズ: ${(adjustedBlob.size / 1024 / 1024).toFixed(2)}MB
+                  </div>
+                  <a href="${url}" download="${filename}" class="download-btn">
+                    動画をダウンロード
+                  </a>
+                  <div class="info">
+                    ※ ダウンロードがうまくいかない場合は、動画を長押しして「動画を保存」を選択してください。
+                  </div>
+                </div>
+              </body>
+            </html>
+          `);
+          newWindow.document.close();
         }
-        URL.revokeObjectURL(url);
-        console.log('🧹 クリーンアップ完了');
-      }, 1000); // 1秒に延長
+      } else {
+        // デスクトップの場合：従来の方法
+        const url = URL.createObjectURL(recordedVideoBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.setAttribute('download', filename);
+        a.style.display = 'none';
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          if (document.body.contains(a)) {
+            document.body.removeChild(a);
+          }
+          URL.revokeObjectURL(url);
+        }, 1000);
+      }
       
       setStatusMessage(`解析動画のダウンロードを開始しました (${extension.toUpperCase()}): ${filename}`);
       
@@ -822,7 +938,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       console.error('❌ ダウンロードエラー:', error);
       alert(`ダウンロードに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [recordedVideoBlob, preferredVideoFormat]);
+  }, [recordedVideoBlob, preferredVideoFormat, isMobile]);
 
   const startVideoRecording = useCallback(async () => {
     if (!videoRef.current) {
@@ -1035,10 +1151,13 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       };
 
       // フレーム描画ループ
+      let frameCount = 0;
       const drawFrame = () => {
         if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
         
         try {
+          frameCount++;
+          
           // キャンバスをクリア
           ctx.clearRect(0, 0, compositeCanvas.width, compositeCanvas.height);
           
@@ -1048,16 +1167,35 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           // 現在のポーズランドマークを直接描画
           const currentLandmarks = result?.landmarks;
           if (currentLandmarks && currentLandmarks.length > 0) {
-            console.log('🎨 ポーズ描画中:', currentLandmarks.length, '人検出');
+            if (frameCount % 30 === 0) { // 1秒に1回ログ出力
+              console.log('🎨 ポーズ描画中:', currentLandmarks.length, '人検出', `フレーム${frameCount}`);
+            }
             drawPoseOnCanvas(ctx, currentLandmarks, compositeCanvas.width, compositeCanvas.height);
+            
+            // ポーズ検出状況を画面に表示
+            ctx.fillStyle = 'green';
+            ctx.font = '14px Arial';
+            ctx.fillText(`ポーズ検出: ${currentLandmarks.length}人`, 10, 70);
           } else {
-            console.log('⚠️ ポーズデータなし');
+            if (frameCount % 30 === 0) { // 1秒に1回ログ出力
+              console.log('⚠️ ポーズデータなし', `フレーム${frameCount}`);
+            }
+            
+            // ポーズ未検出を画面に表示
+            ctx.fillStyle = 'orange';
+            ctx.font = '14px Arial';
+            ctx.fillText('ポーズ未検出', 10, 70);
           }
           
           // デバッグ用: 録画中であることを示すテキストを追加
           ctx.fillStyle = 'red';
           ctx.font = '16px Arial';
           ctx.fillText('🔴 REC', 10, 30);
+          
+          // フレーム番号表示
+          ctx.fillStyle = 'blue';
+          ctx.font = '12px Arial';
+          ctx.fillText(`Frame: ${frameCount}`, 10, 50);
           
         } catch (error) {
           console.warn('フレーム描画エラー:', error);
@@ -1652,7 +1790,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       <line x1="12" y1="15" x2="12" y2="3"/>
                       <polygon points="9,11 15,11 15,13 9,13"/>
                     </svg>
-                    <span>MP4形式で保存</span>
+                    <span>{isMobile ? 'MP4で表示・保存' : 'MP4形式で保存'}</span>
                   </button>
                 )}
                 
