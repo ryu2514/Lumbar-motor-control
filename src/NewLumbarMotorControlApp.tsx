@@ -735,40 +735,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, [recordedVideoBlob]);
 
-  // MP4としてダウンロード（拡張子変更のみ）
-  const downloadAsMP4 = useCallback(() => {
-    if (!recordedVideoBlob) {
-      alert('録画データがありません。');
-      return;
-    }
-
-    try {
-      const url = URL.createObjectURL(recordedVideoBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      
-      // 強制的にMP4拡張子を使用
-      const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp4`;
-      a.download = filename;
-      a.setAttribute('download', filename);
-      a.style.display = 'none';
-      
-      document.body.appendChild(a);
-      a.click();
-      
-      setTimeout(() => {
-        if (document.body.contains(a)) {
-          document.body.removeChild(a);
-        }
-        URL.revokeObjectURL(url);
-      }, 1000);
-      
-      setStatusMessage(`MP4拡張子でダウンロード開始: ${filename} (注意: 実際の形式は${recordedVideoBlob.type})`);
-    } catch (error) {
-      console.error('❌ MP4ダウンロードエラー:', error);
-      alert(`MP4ダウンロードに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }, [recordedVideoBlob]);
 
   // 解析動画の録画開始
   // 即座ダウンロード機能
@@ -881,14 +847,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       compositeCanvas.width = video.videoWidth || 640;
       compositeCanvas.height = video.videoHeight || 480;
 
-      console.log('🎥 Starting video recording with pose overlay...', {
-        videoWidth: compositeCanvas.width,
-        videoHeight: compositeCanvas.height,
-        hasLandmarks: !!(landmarks && landmarks.length > 0),
-        landmarksCount: landmarks?.length || 0,
-        selectedMimeType
-      });
-
       // MediaRecorderでキャンバスストリームを録画
       const stream = compositeCanvas.captureStream(30); // 30fps
       
@@ -966,7 +924,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       
       const selectedMimeType = getPreferredMimeType();
       
-      console.log('使用するMIMEタイプ:', selectedMimeType, {
+      console.log('🎥 Starting video recording with pose overlay...', {
+        videoWidth: compositeCanvas.width,
+        videoHeight: compositeCanvas.height,
+        hasLandmarks: !!(landmarks && landmarks.length > 0),
+        landmarksCount: landmarks?.length || 0,
+        selectedMimeType,
         preferredFormat: preferredVideoFormat,
         isMP4: selectedMimeType.includes('mp4'),
         isWebM: selectedMimeType.includes('webm')
