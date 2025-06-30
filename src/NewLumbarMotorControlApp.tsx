@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, Play, Pause, BarChart3, Activity } from 'lucide-react';
 
-// MediaPipe の型定義
-import type { NormalizedLandmark } from '@mediapipe/tasks-vision';
+// MediaPipe の型定義（型の互換性の問題により直接使用せず）
 
 // カスタムフックのインポート
 import { usePoseLandmarker } from './hooks/usePoseLandmarker';
