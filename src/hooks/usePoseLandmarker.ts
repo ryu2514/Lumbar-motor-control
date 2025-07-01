@@ -174,11 +174,12 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
           return;
         }
 
-        // ビデオが一時停止または終了している場合は検出を停止
+        // ビデオが一時停止または終了している場合でも検出を継続（静止画でも姿勢を検出）
         if (videoRef.current.paused || videoRef.current.ended) {
-          // 一時停止/終了時はrequestAnimationFrameループを停止
-          console.log('ℹ️ ビデオが一時停止または終了のため、ポーズ検出を停止');
-          return;
+          // 一時停止時でも現在のフレームでポーズ検出を実行
+          if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
+            console.log('⏸️ ビデオ一時停止中でもポーズ検出を継続');
+          }
         }
         
         // ビデオ状態をデバッグ出力 (正常終了時)
@@ -189,8 +190,12 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
             readyState: videoRef.current.readyState
           });
         }
-        // ビデオの現在時間が変わった場合のみ処理（パフォーマンス向上）
-        if (videoRef.current.currentTime !== lastVideoTimeRef.current) {
+        // ビデオの現在時間が変わった場合または一時停止中でもポーズ検出を実行
+        const shouldDetect = videoRef.current.currentTime !== lastVideoTimeRef.current || 
+                           videoRef.current.paused || 
+                           videoRef.current.ended;
+        
+        if (shouldDetect) {
           try {
             // 現在のビデオフレームでポーズ検出を実行
             const detections = landmarkerRef.current.detectForVideo(
@@ -204,17 +209,19 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
                 landmarks: detections.landmarks,
                 worldLandmarks: detections.worldLandmarks || []
               });
-              if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
+              if (performance.now() % 2000 < 50) { // 2秒に1回程度ログを出力
                 console.log('✅ ポーズ検出成功: ランドマーク数', detections.landmarks[0].length);
               }
             } else {
-              if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
+              if (performance.now() % 2000 < 50) { // 2秒に1回程度ログを出力
                 console.log('❌ ポーズ検出失敗またはランドマークなし');
               }
             }
 
-            // 最後に処理したビデオ時間を更新
-            lastVideoTimeRef.current = videoRef.current.currentTime;
+            // 最後に処理したビデオ時間を更新（再生中のみ）
+            if (!videoRef.current.paused && !videoRef.current.ended) {
+              lastVideoTimeRef.current = videoRef.current.currentTime;
+            }
           } catch (detectionError) {
             console.error('🔍 フレーム処理中に検出エラーが発生:', detectionError);
           }

@@ -247,13 +247,32 @@ class DynamicStabilityAnalyzer {
     hipLumbarRatio: number;
     stabilityGrade: 'excellent' | 'good' | 'fair' | 'poor';
   } {
-    if (this.hipHistory.length < 30) {
+    if (this.hipHistory.length < 10) {
+      // データが少ない場合は、直近の安定性を簡易評価
+      if (this.lumbarHistory.length > 0 && this.hipHistory.length > 0) {
+        const recentLumbarVariation = this.lumbarHistory.length > 1 ? 
+          Math.abs(this.lumbarHistory[this.lumbarHistory.length - 1] - this.lumbarHistory[0]) : 0;
+        const recentHipVariation = this.hipHistory.length > 1 ? 
+          Math.abs(this.hipHistory[this.hipHistory.length - 1] - this.hipHistory[0]) : 0;
+        
+        const ratio = recentHipVariation > 0 ? recentLumbarVariation / recentHipVariation : 0;
+        const score = Math.max(0, 100 - (ratio * 100));
+        
+        return {
+          hipMovementPhases: [],
+          lumbarStabilityScore: score,
+          lumbarExcessiveMovement: recentLumbarVariation,
+          hipLumbarRatio: ratio,
+          stabilityGrade: score >= 60 ? 'good' : score >= 40 ? 'fair' : 'poor'
+        };
+      }
+      
       return {
         hipMovementPhases: [],
-        lumbarStabilityScore: 0,
+        lumbarStabilityScore: 50,
         lumbarExcessiveMovement: 0,
         hipLumbarRatio: 0,
-        stabilityGrade: 'poor'
+        stabilityGrade: 'fair'
       };
     }
     

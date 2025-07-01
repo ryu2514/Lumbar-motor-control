@@ -31,7 +31,42 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
     setPreviousTestType(testType);
 
     if (!result || !result.worldLandmarks || result.worldLandmarks.length === 0) {
-      setMetrics([]);
+      // データが無い場合でも基本的な待機状態メトリクスを表示
+      const waitingMetrics: Metric[] = [
+        {
+          label: "腰椎安定性スコア",
+          value: 0,
+          unit: "点",
+          status: 'caution',
+          description: '姿勢データを取得中...',
+          normalRange: "80-100点（優秀な制御）"
+        },
+        {
+          label: "股関節-腰椎運動比率",
+          value: 0,
+          unit: "比率",
+          status: 'caution',
+          description: '姿勢データを取得中...',
+          normalRange: "0.1-0.3（理想的な分離）"
+        },
+        {
+          label: "腰椎過剰運動量",
+          value: 0,
+          unit: "°",
+          status: 'caution',
+          description: '姿勢データを取得中...',
+          normalRange: "0-5°（良好な制御）"
+        },
+        {
+          label: "現在の腰椎角度",
+          value: 0,
+          unit: "°",
+          status: 'caution',
+          description: '姿勢データを取得中...',
+          normalRange: "-15° 〜 +15°（中立位）"
+        }
+      ];
+      setMetrics(waitingMetrics);
       return;
     }
 
@@ -41,8 +76,8 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
     // 動作履歴を保存（タイミング分析用）
     setMovementHistory(prev => [...prev.slice(-19), landmarks]); // 直近20フレームを維持
 
-    // ランドマークの可視性チェック
-    const isLandmarkVisible = (index: number, threshold = 0.6) => {
+    // ランドマークの可視性チェック（より寛容に）
+    const isLandmarkVisible = (index: number, threshold = 0.3) => {
       return landmarks[index] && (landmarks[index].visibility || 1) > threshold;
     };
 
@@ -90,12 +125,11 @@ function addLumbarFlexionExtensionMetric(
   metrics: Metric[],
   isLandmarkVisible: (index: number, threshold?: number) => boolean
 ) {
+  // 最低限のランドマークが検出されている場合のみ評価を実行
   if (isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) && 
       isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER) &&
       isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
-      isLandmarkVisible(LANDMARKS.LEFT_KNEE) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_KNEE)) {
+      isLandmarkVisible(LANDMARKS.RIGHT_HIP)) {
     
     // 肩、腰、膝の中心点を計算
     const shoulderMid = calculateMidpoint(
@@ -108,14 +142,18 @@ function addLumbarFlexionExtensionMetric(
       landmarks[LANDMARKS.RIGHT_HIP]
     );
     
-    const kneeMid = calculateMidpoint(
-      landmarks[LANDMARKS.LEFT_KNEE],
-      landmarks[LANDMARKS.RIGHT_KNEE]
-    );
-    
-    // 腰椎角度と股関節角度を計算
+    // 腰椎角度を計算
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
-    const hipAngle = calculateHipAngle(shoulderMid, hipMid, kneeMid);
+    
+    // 膝のランドマークが利用可能な場合のみ股関節角度を計算
+    let hipAngle = 0;
+    if (isLandmarkVisible(LANDMARKS.LEFT_KNEE) && isLandmarkVisible(LANDMARKS.RIGHT_KNEE)) {
+      const kneeMid = calculateMidpoint(
+        landmarks[LANDMARKS.LEFT_KNEE],
+        landmarks[LANDMARKS.RIGHT_KNEE]
+      );
+      hipAngle = calculateHipAngle(shoulderMid, hipMid, kneeMid);
+    }
     
     // 動的安定性解析にデータを追加
     const timestamp = Date.now();
