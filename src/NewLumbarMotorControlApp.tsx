@@ -1231,7 +1231,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
       // 確実にポーズを描画するための改善された描画ループ
       let frameCount = 0;
-      let lastLandmarksData = null;
+      let lastLandmarksData: any[][] | null = null;
       
       const drawFrame = () => {
         if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
