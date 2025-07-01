@@ -210,7 +210,7 @@ function calculateStandingHipFlexMetrics(
   metrics: Metric[],
   isLandmarkVisible: (index: number, threshold?: number) => boolean,
   getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number },
-  movementHistory: any[]
+  _movementHistory: any[] // 未使用パラメータをアンダースコア接頭辞で明示
 ) {
   if (isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
       isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
@@ -243,21 +243,7 @@ function calculateStandingHipFlexMetrics(
 
     // 股関節-腰椎リズム（削除済み）
 
-    // 動作タイミング分析
-    if (movementHistory.length > 10) {
-      const initialHip = movementHistory[0] ? getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP) : hipMid;
-      const currentMovement = Math.abs(hipMid.y - initialHip.y);
-      const movementSpeed = currentMovement * 100; // 正規化された速度
-      
-      metrics.push({
-        label: "動作速度",
-        value: Number(movementSpeed.toFixed(1)),
-        unit: "mm/frame",
-        status: movementSpeed > 5 ? 'abnormal' : movementSpeed > 3 ? 'caution' : 'normal',
-        description: "前屈動作の制御された速度",
-        normalRange: "0-3 mm/frame"
-      });
-    }
+    // 動作速度（削除済み）
   }
 }
 
@@ -281,7 +267,6 @@ function calculateRockBackMetrics(
     
     const hipMid = getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP);
     const kneeMid = getMidpoint(LANDMARKS.LEFT_KNEE, LANDMARKS.RIGHT_KNEE);
-    const shoulderMid = getMidpoint(LANDMARKS.LEFT_SHOULDER, LANDMARKS.RIGHT_SHOULDER);
     const ankleMid = getMidpoint(LANDMARKS.LEFT_ANKLE, LANDMARKS.RIGHT_ANKLE);
     
     // 股関節-膝関節角度（後方姿勢角度）
@@ -300,19 +285,7 @@ function calculateRockBackMetrics(
       normalRange: "110-140°"
     });
 
-    // 体幹の安定性（ロックバック時）
-    const trunkVector = calculateVector(hipMid, shoulderMid);
-    const horizontalRef = { x: 1, y: 0, z: 0 };
-    const trunkDeviation = radToDeg(calculateAngleBetweenVectors(trunkVector, horizontalRef));
-    
-    metrics.push({
-      label: "体幹安定性",
-      value: Number(Math.abs(90 - trunkDeviation).toFixed(1)),
-      unit: "°",
-      status: Math.abs(90 - trunkDeviation) > 20 ? 'abnormal' : Math.abs(90 - trunkDeviation) > 10 ? 'caution' : 'normal',
-      description: "後方移動時の体幹の安定性",
-      normalRange: "0-10°"
-    });
+    // 体幹安定性（削除済み）
 
     // 腰椎カーブの維持（削除済み）
     // 骨盤制御（削除済み）
@@ -327,7 +300,7 @@ function calculateSeatedKneeExtMetrics(
   metrics: Metric[],
   isLandmarkVisible: (index: number, threshold?: number) => boolean,
   getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number },
-  movementHistory: any[]
+  _movementHistory: any[] // 未使用パラメータをアンダースコア接頭辞で明示
 ) {
   if (isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
       isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
@@ -384,19 +357,6 @@ function calculateSeatedKneeExtMetrics(
 
     // 左右対称性（削除済み）
 
-    // 代償動作
-    if (movementHistory.length > 5) {
-      const initialTrunk = movementHistory[0] ? getMidpoint(LANDMARKS.LEFT_SHOULDER, LANDMARKS.RIGHT_SHOULDER) : shoulderMid;
-      const trunkCompensation = Math.abs(shoulderMid.y - initialTrunk.y) * 100;
-      
-      metrics.push({
-        label: "代償動作",
-        value: Number(trunkCompensation.toFixed(1)),
-        unit: "mm",
-        status: trunkCompensation > 30 ? 'abnormal' : trunkCompensation > 15 ? 'caution' : 'normal',
-        description: "膝伸展時の体幹代償動作",
-        normalRange: "0-15mm"
-      });
-    }
+    // 代償動作（削除済み）
   }
 }
