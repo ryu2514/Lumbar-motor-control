@@ -18,45 +18,79 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
   // PoseLandmarker の初期化
   useEffect(() => {
     const initializePoseLandmarker = async () => {
-      try {
-        console.log('✅ MediaPipe初期化開始: WASMファイル読み込み中...');
-        // WASM ファイルを含む依存ファイルを読み込む
-        const vision = await FilesetResolver.forVisionTasks(
-          // CDN パスを使用（安定性のため）
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        );
-        console.log('✅ WASMファイル読み込み完了');
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          console.log(`✅ MediaPipe初期化開始 (試行 ${retryCount + 1}/${maxRetries}): WASMファイル読み込み中...`);
+          
+          // WASM ファイルを含む依存ファイルを読み込む
+          const vision = await FilesetResolver.forVisionTasks(
+            // CDN パスを使用（安定性のため）
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+          );
+          console.log('✅ WASMファイル読み込み完了');
 
-        // PoseLandmarker の初期化（最新のAPIに対応）
-        // 型アサーションを使用して型エラーを回避
-        const options = {
-          baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-            delegate: 'GPU' as 'GPU' // 型を固定して型エラーを回避
-          },
-          runningMode: 'VIDEO' as const,  // constアサーションで文字列リテラル型に
-          numPoses: 1,
-          minPoseDetectionConfidence: 0.5,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
-          outputSegmentationMasks: false
-        };
+        // PoseLandmarker の初期化（複数のモデルURLを試行）
+        const modelUrls = [
+          'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm/pose_landmarker_lite.task',
+          // フォールバック用のローカルファイル（将来的に追加可能）
+        ];
+        
+        let poseLandmarker = null;
+        let lastError = null;
+        
+        for (const modelUrl of modelUrls) {
+          try {
+            console.log(`📦 モデル読み込み試行: ${modelUrl}`);
+            
+            const options = {
+              baseOptions: {
+                modelAssetPath: modelUrl,
+                delegate: 'CPU' as 'CPU' // CPUに変更して安定性を向上
+              },
+              runningMode: 'VIDEO' as const,
+              numPoses: 1,
+              minPoseDetectionConfidence: 0.3, // 閾値を下げて検出率向上
+              minPosePresenceConfidence: 0.3,
+              minTrackingConfidence: 0.3,
+              outputSegmentationMasks: false
+            };
 
-        // MediaPipeランタイムを確実に使用するための拡張オプション
-        // @ts-ignore - MediaPipe内部API
-        if (typeof options.baseOptions.runtime === 'undefined') {
-          // @ts-ignore - MediaPipe内部API
-          options._loadMediapipeRuntimeWasm = true;
+            poseLandmarker = await PoseLandmarker.createFromOptions(vision, options);
+            console.log(`✅ モデル読み込み成功: ${modelUrl}`);
+            break;
+          } catch (modelError) {
+            lastError = modelError;
+            console.warn(`⚠️ モデル読み込み失敗: ${modelUrl}`, modelError);
+            continue;
+          }
+        }
+        
+        if (!poseLandmarker) {
+          throw new Error(`すべてのモデルURLで読み込みに失敗しました。最後のエラー: ${lastError}`);
         }
 
-        const poseLandmarker = await PoseLandmarker.createFromOptions(vision, options);
-        landmarkerRef.current = poseLandmarker;
-        setIsLandmarkerReady(true);
-        console.log('✅ PoseLandmarker初期化成功');
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error('❌ PoseLandmarkerの初期化に失敗しました:', errorMsg);
-        setError(`初期化エラー: ${errorMsg}`);
+          landmarkerRef.current = poseLandmarker;
+          setIsLandmarkerReady(true);
+          console.log('✅ PoseLandmarker初期化成功');
+          return; // 成功したら関数を終了
+          
+        } catch (error) {
+          retryCount++;
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.error(`❌ PoseLandmarkerの初期化に失敗しました (試行 ${retryCount}/${maxRetries}):`, errorMsg);
+          
+          if (retryCount >= maxRetries) {
+            setError(`初期化エラー: ${errorMsg} (${maxRetries}回試行後に失敗)`);
+            return;
+          }
+          
+          // 再試行前に少し待機
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
       }
     };
 
