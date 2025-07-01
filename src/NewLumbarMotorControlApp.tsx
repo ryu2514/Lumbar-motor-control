@@ -1500,7 +1500,10 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   // JSXレンダリング部分
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">腰部運動制御評価アプリケーション</h1>
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">腰椎運動制御の評価</h1>
+        <p className="text-lg text-gray-600 font-medium">Lumbar Motor Control</p>
+      </div>
       
       {/* テストセレクター */}
       <TestSelector currentTest={testType} onChange={setTestType} />
