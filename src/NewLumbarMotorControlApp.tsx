@@ -1565,7 +1565,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       const video = videoRef.current;
                       if (video.readyState >= 3 && video.videoWidth > 0) {
                         setIsVideoLoaded(true);
-                        setStatusMessage('動画準備完了 - 再生可能です');
+                        setStatusMessage('動画準備完了 - 再生ボタンを押すと自動解析が開始されます');
                         
                         // タイムアウトをクリア
                         if (loadingTimeout) {
@@ -1581,7 +1581,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       const video = videoRef.current;
                       if (video.videoWidth > 0 && video.videoHeight > 0) {
                         setIsVideoLoaded(true);
-                        setStatusMessage('動画準備完了 - 再生可能です');
+                        setStatusMessage('動画準備完了 - 再生ボタンを押すと自動解析が開始されます');
                         
                         // タイムアウトをクリア
                         if (loadingTimeout) {
@@ -1594,6 +1594,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   onPlay={() => {
                     console.log('Video play event triggered');
                     setIsPlaying(true);
+                    setStatusMessage('動画解析中... 再生が終了すると自動的にダウンロードできます');
                     
                     // メイン動画が再生開始されたらデモ動画も再生
                     if (showComparison && userUploadedVideo && demoVideoRef.current && isDemoVideoLoaded) {
@@ -1619,6 +1620,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   onEnded={() => {
                     console.log('Video ended event triggered');
                     setIsPlaying(false);
+                    setStatusMessage('動画解析完了！下の「解析動画ダウンロード」ボタンからダウンロードできます');
                   }}
                   onError={(e) => {
                     console.error('Video error:', e);
