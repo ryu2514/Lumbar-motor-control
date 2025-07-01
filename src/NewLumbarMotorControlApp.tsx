@@ -940,6 +940,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, [recordedVideoBlob, preferredVideoFormat, isMobile]);
 
+  // ポーズデータを取得するためのRef（リアルタイム更新用）
+  const currentPoseDataRef = useRef<any[][] | null>(null);
+
+  // ポーズデータをRefに更新（リアルタイム同期）
+  useEffect(() => {
+    if (result && result.landmarks && result.landmarks.length > 0) {
+      currentPoseDataRef.current = result.landmarks;
+    }
+  }, [result]);
+
   const startVideoRecording = useCallback(async () => {
     if (!videoRef.current) {
       alert('動画が読み込まれていません');
@@ -1229,9 +1239,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         });
       };
 
-      // 確実にポーズを描画するための改善された描画ループ
+      // 改善された描画ループ - Refを使用してリアルタイムポーズデータを取得
       let frameCount = 0;
-      let lastLandmarksData: any[][] | null = null;
       
       const drawFrame = () => {
         if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
@@ -1245,18 +1254,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           // 動画フレームを描画
           ctx.drawImage(video, 0, 0, compositeCanvas.width, compositeCanvas.height);
           
-          // 複数のソースからポーズデータを取得試行
-          let currentLandmarks = null;
-          
-          // 1. 最新のresultから取得
-          if (result && result.landmarks && result.landmarks.length > 0) {
-            currentLandmarks = result.landmarks;
-            lastLandmarksData = currentLandmarks; // 成功時に保存
-          }
-          // 2. 前回のデータがある場合は継続使用
-          else if (lastLandmarksData) {
-            currentLandmarks = lastLandmarksData;
-          }
+          // Refから最新のポーズデータを取得（リアルタイム）
+          const currentLandmarks = currentPoseDataRef.current;
           
           // ポーズ描画
           if (currentLandmarks && currentLandmarks.length > 0) {
@@ -1264,8 +1263,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               console.log('🎨 録画中ポーズ描画:', {
                 人数: currentLandmarks.length,
                 フレーム: frameCount,
-                ランドマーク数: currentLandmarks[0]?.length || 0,
-                最初のランドマーク: currentLandmarks[0]?.[0] || null
+                ランドマーク数: currentLandmarks[0]?.length || 0
               });
             }
             
@@ -1288,12 +1286,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             }
           } else {
             if (frameCount % 30 === 0) { // 1秒に1回ログ出力
-              console.log('⚠️ 録画中ポーズなし:', {
-                フレーム: frameCount,
-                result: !!result,
-                landmarks: !!result?.landmarks,
-                landmarksLength: result?.landmarks?.length || 0
-              });
+              console.log('⚠️ 録画中ポーズなし:', { フレーム: frameCount });
             }
             
             // ポーズ未検出を画面に表示
@@ -1353,7 +1346,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       alert('録画の開始に失敗しました');
       setIsRecording(false);
     }
-  }, []);
+  }, [landmarks, result, isVideoLoaded]);
 
   // 解析動画の録画停止
   const stopVideoRecording = useCallback(() => {
