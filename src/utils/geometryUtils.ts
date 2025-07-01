@@ -181,4 +181,208 @@ export const calculateFilteredLumbarAngle = (
  */
 export const resetAngleFilter = (): void => {
   angleFilter.reset();
+  dynamicStabilityAnalyzer.reset();
+};
+
+/**
+ * 股関節角度を計算（大腿骨-骨盤の角度）
+ */
+export const calculateHipAngle = (
+  shoulderMid: { x: number; y: number; z: number },
+  hipMid: { x: number; y: number; z: number },
+  kneeMid: { x: number; y: number; z: number }
+): number => {
+  // 骨盤ライン（胴体ベクトル）
+  const pelvisVector = {
+    x: shoulderMid.x - hipMid.x,
+    y: shoulderMid.y - hipMid.y,
+    z: shoulderMid.z - hipMid.z
+  };
+  
+  // 大腿骨ライン
+  const femurVector = {
+    x: kneeMid.x - hipMid.x,
+    y: kneeMid.y - hipMid.y,
+    z: kneeMid.z - hipMid.z
+  };
+  
+  // 2D投影での股関節角度計算（矢状面）
+  const hipAngle = Math.atan2(-femurVector.z, -femurVector.y) - Math.atan2(-pelvisVector.z, -pelvisVector.y);
+  return radToDeg(hipAngle);
+};
+
+/**
+ * 動的安定性解析クラス
+ * 股関節運動中の腰椎安定性を評価
+ */
+class DynamicStabilityAnalyzer {
+  private lumbarHistory: number[] = [];
+  private hipHistory: number[] = [];
+  private timeHistory: number[] = [];
+  private maxHistory = 150; // 約5秒分の履歴（30fps想定）
+  
+  /**
+   * 新しいデータポイントを追加
+   */
+  addDataPoint(lumbarAngle: number, hipAngle: number, timestamp: number): void {
+    this.lumbarHistory.push(lumbarAngle);
+    this.hipHistory.push(hipAngle);
+    this.timeHistory.push(timestamp);
+    
+    // 履歴サイズを制限
+    if (this.lumbarHistory.length > this.maxHistory) {
+      this.lumbarHistory.shift();
+      this.hipHistory.shift();
+      this.timeHistory.shift();
+    }
+  }
+  
+  /**
+   * 股関節運動期間中の腰椎安定性を評価
+   */
+  analyzeLumbarStability(): {
+    hipMovementPhases: Array<{start: number, end: number, hipRange: number}>;
+    lumbarStabilityScore: number;
+    lumbarExcessiveMovement: number;
+    hipLumbarRatio: number;
+    stabilityGrade: 'excellent' | 'good' | 'fair' | 'poor';
+  } {
+    if (this.hipHistory.length < 30) {
+      return {
+        hipMovementPhases: [],
+        lumbarStabilityScore: 0,
+        lumbarExcessiveMovement: 0,
+        hipLumbarRatio: 0,
+        stabilityGrade: 'poor'
+      };
+    }
+    
+    // 1. 股関節運動期間を検出
+    const hipMovementPhases = this.detectHipMovementPhases();
+    
+    // 2. 各運動期間での腰椎の安定性を評価
+    let totalLumbarVariation = 0;
+    let totalHipMovement = 0;
+    
+    for (const phase of hipMovementPhases) {
+      const lumbarRange = this.calculateLumbarRangeInPhase(phase.start, phase.end);
+      const hipRange = phase.hipRange;
+      
+      totalLumbarVariation += lumbarRange;
+      totalHipMovement += hipRange;
+    }
+    
+    // 3. 腰椎安定性スコア計算
+    const hipLumbarRatio = totalHipMovement > 0 ? totalLumbarVariation / totalHipMovement : 0;
+    const lumbarStabilityScore = Math.max(0, 100 - (hipLumbarRatio * 100));
+    
+    // 4. 過剰運動量（閾値を超えた腰椎変化）
+    const lumbarExcessiveMovement = Math.max(0, totalLumbarVariation - (totalHipMovement * 0.3));
+    
+    // 5. 安定性グレード判定
+    let stabilityGrade: 'excellent' | 'good' | 'fair' | 'poor';
+    if (lumbarStabilityScore >= 80) stabilityGrade = 'excellent';
+    else if (lumbarStabilityScore >= 60) stabilityGrade = 'good';
+    else if (lumbarStabilityScore >= 40) stabilityGrade = 'fair';
+    else stabilityGrade = 'poor';
+    
+    return {
+      hipMovementPhases,
+      lumbarStabilityScore,
+      lumbarExcessiveMovement,
+      hipLumbarRatio,
+      stabilityGrade
+    };
+  }
+  
+  /**
+   * 股関節運動期間を検出
+   */
+  private detectHipMovementPhases(): Array<{start: number, end: number, hipRange: number}> {
+    const phases: Array<{start: number, end: number, hipRange: number}> = [];
+    const threshold = 5; // 股関節角度変化の閾値（度）
+    const minPhaseDuration = 15; // 最小期間（フレーム数）
+    
+    let inMovement = false;
+    let phaseStart = 0;
+    
+    for (let i = 1; i < this.hipHistory.length; i++) {
+      const hipChange = Math.abs(this.hipHistory[i] - this.hipHistory[i - 1]);
+      
+      if (!inMovement && hipChange > threshold) {
+        // 運動開始
+        inMovement = true;
+        phaseStart = i;
+      } else if (inMovement && hipChange < threshold / 2) {
+        // 運動終了
+        if (i - phaseStart >= minPhaseDuration) {
+          const hipRange = this.calculateHipRangeInPhase(phaseStart, i);
+          phases.push({
+            start: phaseStart,
+            end: i,
+            hipRange
+          });
+        }
+        inMovement = false;
+      }
+    }
+    
+    // 最後の期間が未完了の場合
+    if (inMovement && this.hipHistory.length - phaseStart >= minPhaseDuration) {
+      const hipRange = this.calculateHipRangeInPhase(phaseStart, this.hipHistory.length - 1);
+      phases.push({
+        start: phaseStart,
+        end: this.hipHistory.length - 1,
+        hipRange
+      });
+    }
+    
+    return phases;
+  }
+  
+  /**
+   * 指定期間での股関節可動域を計算
+   */
+  private calculateHipRangeInPhase(start: number, end: number): number {
+    const phaseHipAngles = this.hipHistory.slice(start, end + 1);
+    return Math.max(...phaseHipAngles) - Math.min(...phaseHipAngles);
+  }
+  
+  /**
+   * 指定期間での腰椎可動域を計算
+   */
+  private calculateLumbarRangeInPhase(start: number, end: number): number {
+    const phaseLumbarAngles = this.lumbarHistory.slice(start, end + 1);
+    return Math.max(...phaseLumbarAngles) - Math.min(...phaseLumbarAngles);
+  }
+  
+  /**
+   * データをリセット
+   */
+  reset(): void {
+    this.lumbarHistory = [];
+    this.hipHistory = [];
+    this.timeHistory = [];
+  }
+}
+
+// グローバルな動的安定性解析インスタンス
+const dynamicStabilityAnalyzer = new DynamicStabilityAnalyzer();
+
+/**
+ * 動的安定性解析にデータポイントを追加
+ */
+export const addStabilityDataPoint = (
+  lumbarAngle: number,
+  hipAngle: number,
+  timestamp: number
+): void => {
+  dynamicStabilityAnalyzer.addDataPoint(lumbarAngle, hipAngle, timestamp);
+};
+
+/**
+ * 現在の腰椎安定性を解析
+ */
+export const analyzeLumbarStability = () => {
+  return dynamicStabilityAnalyzer.analyzeLumbarStability();
 };

@@ -9,7 +9,10 @@ import {
   calculateVector,
   calculateFilteredLumbarAngle,
   calculateMidpoint,
-  resetAngleFilter
+  resetAngleFilter,
+  calculateHipAngle,
+  addStabilityDataPoint,
+  analyzeLumbarStability
 } from '../utils/geometryUtils';
 
 /**
@@ -80,7 +83,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
 };
 
 /**
- * 腰椎屈曲・伸展角度を計算して指標に追加する共通関数
+ * 動的腰椎安定性評価を計算して指標に追加する関数
  */
 function addLumbarFlexionExtensionMetric(
   landmarks: any[],
@@ -90,48 +93,121 @@ function addLumbarFlexionExtensionMetric(
   if (isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) && 
       isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER) &&
       isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_HIP)) {
+      isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
+      isLandmarkVisible(LANDMARKS.LEFT_KNEE) && 
+      isLandmarkVisible(LANDMARKS.RIGHT_KNEE)) {
     
-    // 肩の中心点を計算
+    // 肩、腰、膝の中心点を計算
     const shoulderMid = calculateMidpoint(
       landmarks[LANDMARKS.LEFT_SHOULDER],
       landmarks[LANDMARKS.RIGHT_SHOULDER]
     );
     
-    // 腰の中心点を計算
     const hipMid = calculateMidpoint(
       landmarks[LANDMARKS.LEFT_HIP],
       landmarks[LANDMARKS.RIGHT_HIP]
     );
     
-    // 胸腰椎屈曲・伸展角度を計算（フィルター適用）
+    const kneeMid = calculateMidpoint(
+      landmarks[LANDMARKS.LEFT_KNEE],
+      landmarks[LANDMARKS.RIGHT_KNEE]
+    );
+    
+    // 腰椎角度と股関節角度を計算
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
+    const hipAngle = calculateHipAngle(shoulderMid, hipMid, kneeMid);
     
-    // 日本整形外科学会基準による状態判定
-    let status: 'normal' | 'caution' | 'abnormal' = 'normal';
-    let description = '腰椎の屈曲・伸展角度';
+    // 動的安定性解析にデータを追加
+    const timestamp = Date.now();
+    addStabilityDataPoint(lumbarAngle, hipAngle, timestamp);
     
-    // 日本整形外科学会基準: 腰椎屈曲45°/伸展30°
-    if (lumbarAngle > 45) {
-      status = 'abnormal';
-      description = '過度な腰椎屈曲（前屈）';
-    } else if (lumbarAngle < -30) {
-      status = 'abnormal';
-      description = '過度な腰椎伸展（後屈）';
-    } else if (lumbarAngle > 30 || lumbarAngle < -20) {
-      status = 'caution';
-      description = lumbarAngle > 0 ? '軽度の腰椎屈曲' : '軽度の腰椎伸展';
+    // 動的安定性を解析
+    const stabilityAnalysis = analyzeLumbarStability();
+    
+    // 1. 腰椎安定性スコア
+    let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
+    let stabilityDescription = '股関節運動中の腰椎安定性';
+    
+    if (stabilityAnalysis.stabilityGrade === 'excellent') {
+      stabilityStatus = 'normal';
+      stabilityDescription = '優秀な腰椎安定性';
+    } else if (stabilityAnalysis.stabilityGrade === 'good') {
+      stabilityStatus = 'normal';
+      stabilityDescription = '良好な腰椎安定性';
+    } else if (stabilityAnalysis.stabilityGrade === 'fair') {
+      stabilityStatus = 'caution';
+      stabilityDescription = '軽度の腰椎不安定性';
     } else {
-      description = '良好な腰椎アライメント';
+      stabilityStatus = 'abnormal';
+      stabilityDescription = '腰椎制御不良';
     }
     
     metrics.push({
-      label: "胸腰椎屈曲・伸展角度",
+      label: "腰椎安定性スコア",
+      value: Number(stabilityAnalysis.lumbarStabilityScore.toFixed(1)),
+      unit: "点",
+      status: stabilityStatus,
+      description: stabilityDescription,
+      normalRange: "80-100点（優秀な制御）"
+    });
+    
+    // 2. 股関節-腰椎運動比率
+    const ratioStatus: 'normal' | 'caution' | 'abnormal' = 
+      stabilityAnalysis.hipLumbarRatio < 0.3 ? 'normal' :
+      stabilityAnalysis.hipLumbarRatio < 0.5 ? 'caution' : 'abnormal';
+    
+    const ratioDescription = 
+      stabilityAnalysis.hipLumbarRatio < 0.3 ? '理想的な運動分離' :
+      stabilityAnalysis.hipLumbarRatio < 0.5 ? '軽度の代償動作' : '過剰な腰椎代償';
+    
+    metrics.push({
+      label: "股関節-腰椎運動比率",
+      value: Number(stabilityAnalysis.hipLumbarRatio.toFixed(2)),
+      unit: "比率",
+      status: ratioStatus,
+      description: ratioDescription,
+      normalRange: "0.1-0.3（理想的な分離）"
+    });
+    
+    // 3. 腰椎過剰運動量
+    const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
+      stabilityAnalysis.lumbarExcessiveMovement < 5 ? 'normal' :
+      stabilityAnalysis.lumbarExcessiveMovement < 10 ? 'caution' : 'abnormal';
+    
+    const excessiveDescription = 
+      stabilityAnalysis.lumbarExcessiveMovement < 5 ? '最小限の過剰運動' :
+      stabilityAnalysis.lumbarExcessiveMovement < 10 ? '軽度の過剰運動' : '顕著な過剰運動';
+    
+    metrics.push({
+      label: "腰椎過剰運動量",
+      value: Number(stabilityAnalysis.lumbarExcessiveMovement.toFixed(1)),
+      unit: "°",
+      status: excessiveStatus,
+      description: excessiveDescription,
+      normalRange: "0-5°（良好な制御）"
+    });
+    
+    // 4. 現在の腰椎角度（参考値）
+    let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
+    let angleDescription = '現在の腰椎角度';
+    
+    if (Math.abs(lumbarAngle) > 30) {
+      angleStatus = 'abnormal';
+      angleDescription = lumbarAngle > 0 ? '過度な腰椎屈曲' : '過度な腰椎伸展';
+    } else if (Math.abs(lumbarAngle) > 15) {
+      angleStatus = 'caution';
+      angleDescription = lumbarAngle > 0 ? '軽度の腰椎屈曲' : '軽度の腰椎伸展';
+    } else {
+      angleDescription = '良好な腰椎アライメント';
+    }
+    
+    metrics.push({
+      label: "現在の腰椎角度",
       value: Number(lumbarAngle.toFixed(1)),
       unit: "°",
-      status: status,
-      description: description,
-      normalRange: "屈曲45° / 伸展30°（胸腰椎一括測定・日整会基準）"
+      status: angleStatus,
+      description: angleDescription,
+      normalRange: "-15° 〜 +15°（中立位）"
     });
   }
 }
