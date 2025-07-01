@@ -1048,8 +1048,32 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         selectedMimeType,
         preferredFormat: preferredVideoFormat,
         isMP4: selectedMimeType.includes('mp4'),
-        isWebM: selectedMimeType.includes('webm')
+        isWebM: selectedMimeType.includes('webm'),
+        poseResult: {
+          hasResult: !!result,
+          hasLandmarks: !!result?.landmarks,
+          landmarksLength: result?.landmarks?.length || 0,
+          isModelLoaded
+        }
       });
+      
+      // ポーズ検出の詳細状況をログ
+      if (result && result.landmarks) {
+        console.log('📍 ポーズ検出詳細:', {
+          総人数: result.landmarks.length,
+          各人のランドマーク数: result.landmarks.map((person, i) => ({
+            人: i + 1,
+            ランドマーク数: person.length,
+            サンプルランドマーク: person[0] ? {
+              x: person[0].x,
+              y: person[0].y,
+              visibility: person[0].visibility
+            } : null
+          }))
+        });
+      } else {
+        console.warn('⚠️ 録画開始時にポーズデータがありません');
+      }
       
       const mediaRecorder = new MediaRecorder(stream, { 
         mimeType: selectedMimeType 
@@ -1096,62 +1120,119 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         setIsRecording(false);
       };
 
-      // ポーズ描画関数（録画用）
+      // ポーズ描画関数（録画用）- 強化版
       const drawPoseOnCanvas = (ctx: CanvasRenderingContext2D, landmarks: any[][], width: number, height: number) => {
-        if (!landmarks || landmarks.length === 0) return;
+        if (!landmarks || landmarks.length === 0) {
+          console.warn('drawPoseOnCanvas: ランドマークデータがありません');
+          return;
+        }
         
-        // 最初の人物のランドマーク
-        const personLandmarks = landmarks[0];
-        if (!personLandmarks) return;
-        
-        // 接続線の定義（MediaPipe BlazePose GHUMモデルのスケルトン）
-        const connections = [
-          [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], // 顔と首
-          [9, 10], // 肩
-          [11, 13], [13, 15], [15, 17], [17, 19], [19, 15], [15, 21], // 左腕
-          [12, 14], [14, 16], [16, 18], [18, 20], [20, 16], [16, 22], // 右腕
-          [11, 23], [12, 24], [23, 24], // 上半身
-          [23, 25], [25, 27], [27, 29], [29, 31], [31, 27], // 左足
-          [24, 26], [26, 28], [28, 30], [30, 32], [32, 28]  // 右足
-        ];
-
-        // 接続線を描画
-        ctx.strokeStyle = 'rgba(0, 255, 0, 0.8)';
-        ctx.lineWidth = 2;
-
-        connections.forEach(([start, end]) => {
-          if (personLandmarks[start] && personLandmarks[end] && 
-              (!personLandmarks[start].visibility || personLandmarks[start].visibility > 0.5) &&
-              (!personLandmarks[end].visibility || personLandmarks[end].visibility > 0.5)) {
-            ctx.beginPath();
-            ctx.moveTo(
-              personLandmarks[start].x * width,
-              personLandmarks[start].y * height
-            );
-            ctx.lineTo(
-              personLandmarks[end].x * width,
-              personLandmarks[end].y * height
-            );
-            ctx.stroke();
-          }
+        console.log('🎨 drawPoseOnCanvas 実行:', {
+          人数: landmarks.length,
+          canvasSize: { width, height },
+          最初の人のランドマーク数: landmarks[0]?.length || 0
         });
-
-        // ランドマーク（点）を描画
-        personLandmarks.forEach((landmark: any) => {
-          const x = landmark.x * width;
-          const y = landmark.y * height;
-          
-          if (!landmark.visibility || landmark.visibility > 0.5) {
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
-            ctx.beginPath();
-            ctx.arc(x, y, 5, 0, 2 * Math.PI);
-            ctx.fill();
+        
+        // 各人物のポーズを描画
+        landmarks.forEach((personLandmarks, personIndex) => {
+          if (!personLandmarks || personLandmarks.length === 0) {
+            console.warn(`Person ${personIndex}: ランドマークがありません`);
+            return;
           }
+          
+          console.log(`Person ${personIndex}: ${personLandmarks.length}個のランドマーク`);
+          
+          // 人物ごとに異なる色を使用
+          const colors = [
+            { line: 'rgba(0, 255, 0, 0.9)', point: 'rgba(255, 0, 0, 0.9)' },
+            { line: 'rgba(0, 0, 255, 0.9)', point: 'rgba(255, 255, 0, 0.9)' },
+            { line: 'rgba(255, 0, 255, 0.9)', point: 'rgba(0, 255, 255, 0.9)' }
+          ];
+          const color = colors[personIndex % colors.length];
+          
+          // 接続線の定義（MediaPipe BlazePose GHUMモデルのスケルトン）
+          const connections = [
+            [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], // 顔と首
+            [9, 10], // 肩
+            [11, 13], [13, 15], [15, 17], [17, 19], [19, 15], [15, 21], // 左腕
+            [12, 14], [14, 16], [16, 18], [18, 20], [20, 16], [16, 22], // 右腕
+            [11, 23], [12, 24], [23, 24], // 上半身
+            [23, 25], [25, 27], [27, 29], [29, 31], [31, 27], // 左足
+            [24, 26], [26, 28], [28, 30], [30, 32], [32, 28]  // 右足
+          ];
+
+          // 接続線を描画
+          ctx.strokeStyle = color.line;
+          ctx.lineWidth = 3; // 太くして見やすく
+          ctx.lineCap = 'round';
+
+          let drawnConnections = 0;
+          connections.forEach(([start, end]) => {
+            if (start < personLandmarks.length && end < personLandmarks.length &&
+                personLandmarks[start] && personLandmarks[end]) {
+              
+              const startLandmark = personLandmarks[start];
+              const endLandmark = personLandmarks[end];
+              
+              // 可視性チェック（より寛容に）
+              const startVisible = !startLandmark.visibility || startLandmark.visibility > 0.3;
+              const endVisible = !endLandmark.visibility || endLandmark.visibility > 0.3;
+              
+              if (startVisible && endVisible) {
+                ctx.beginPath();
+                ctx.moveTo(
+                  startLandmark.x * width,
+                  startLandmark.y * height
+                );
+                ctx.lineTo(
+                  endLandmark.x * width,
+                  endLandmark.y * height
+                );
+                ctx.stroke();
+                drawnConnections++;
+              }
+            }
+          });
+
+          // ランドマーク（点）を描画
+          ctx.fillStyle = color.point;
+          let drawnPoints = 0;
+          personLandmarks.forEach((landmark: any, index: number) => {
+            if (!landmark) return;
+            
+            const x = landmark.x * width;
+            const y = landmark.y * height;
+            
+            // 画面内チェック
+            if (x >= 0 && x <= width && y >= 0 && y <= height) {
+              // 可視性チェック（より寛容に）
+              const visible = !landmark.visibility || landmark.visibility > 0.3;
+              
+              if (visible) {
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, 2 * Math.PI); // 大きくして見やすく
+                ctx.fill();
+                
+                // 重要なポイントにはアウトライン追加
+                if ([0, 11, 12, 23, 24].includes(index)) { // 鼻、肩、腰
+                  ctx.strokeStyle = 'white';
+                  ctx.lineWidth = 2;
+                  ctx.stroke();
+                }
+                
+                drawnPoints++;
+              }
+            }
+          });
+          
+          console.log(`Person ${personIndex}: 描画完了 - 線:${drawnConnections}, 点:${drawnPoints}`);
         });
       };
 
-      // フレーム描画ループ
+      // 確実にポーズを描画するための改善された描画ループ
       let frameCount = 0;
+      let lastLandmarksData = null;
+      
       const drawFrame = () => {
         if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
         
@@ -1164,41 +1245,95 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           // 動画フレームを描画
           ctx.drawImage(video, 0, 0, compositeCanvas.width, compositeCanvas.height);
           
-          // 現在のポーズランドマークを直接描画
-          const currentLandmarks = result?.landmarks;
+          // 複数のソースからポーズデータを取得試行
+          let currentLandmarks = null;
+          
+          // 1. 最新のresultから取得
+          if (result && result.landmarks && result.landmarks.length > 0) {
+            currentLandmarks = result.landmarks;
+            lastLandmarksData = currentLandmarks; // 成功時に保存
+          }
+          // 2. 前回のデータがある場合は継続使用
+          else if (lastLandmarksData) {
+            currentLandmarks = lastLandmarksData;
+          }
+          
+          // ポーズ描画
           if (currentLandmarks && currentLandmarks.length > 0) {
             if (frameCount % 30 === 0) { // 1秒に1回ログ出力
-              console.log('🎨 ポーズ描画中:', currentLandmarks.length, '人検出', `フレーム${frameCount}`);
+              console.log('🎨 録画中ポーズ描画:', {
+                人数: currentLandmarks.length,
+                フレーム: frameCount,
+                ランドマーク数: currentLandmarks[0]?.length || 0,
+                最初のランドマーク: currentLandmarks[0]?.[0] || null
+              });
             }
-            drawPoseOnCanvas(ctx, currentLandmarks, compositeCanvas.width, compositeCanvas.height);
             
-            // ポーズ検出状況を画面に表示
-            ctx.fillStyle = 'green';
-            ctx.font = '14px Arial';
-            ctx.fillText(`ポーズ検出: ${currentLandmarks.length}人`, 10, 70);
+            // ポーズ描画を実行
+            try {
+              drawPoseOnCanvas(ctx, currentLandmarks, compositeCanvas.width, compositeCanvas.height);
+              
+              // 成功を示すテキスト
+              ctx.fillStyle = 'lime';
+              ctx.font = 'bold 14px Arial';
+              ctx.strokeStyle = 'black';
+              ctx.lineWidth = 1;
+              ctx.strokeText(`✓ ポーズ描画中: ${currentLandmarks.length}人`, 10, 70);
+              ctx.fillText(`✓ ポーズ描画中: ${currentLandmarks.length}人`, 10, 70);
+            } catch (poseError) {
+              console.error('ポーズ描画エラー:', poseError);
+              ctx.fillStyle = 'red';
+              ctx.font = '14px Arial';
+              ctx.fillText('ポーズ描画エラー', 10, 70);
+            }
           } else {
             if (frameCount % 30 === 0) { // 1秒に1回ログ出力
-              console.log('⚠️ ポーズデータなし', `フレーム${frameCount}`);
+              console.log('⚠️ 録画中ポーズなし:', {
+                フレーム: frameCount,
+                result: !!result,
+                landmarks: !!result?.landmarks,
+                landmarksLength: result?.landmarks?.length || 0
+              });
             }
             
             // ポーズ未検出を画面に表示
             ctx.fillStyle = 'orange';
             ctx.font = '14px Arial';
-            ctx.fillText('ポーズ未検出', 10, 70);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.strokeText('⚠ ポーズ未検出', 10, 70);
+            ctx.fillText('⚠ ポーズ未検出', 10, 70);
           }
           
-          // デバッグ用: 録画中であることを示すテキストを追加
+          // デバッグ用情報を追加
           ctx.fillStyle = 'red';
-          ctx.font = '16px Arial';
+          ctx.font = 'bold 16px Arial';
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 2;
+          ctx.strokeText('🔴 REC', 10, 30);
           ctx.fillText('🔴 REC', 10, 30);
           
-          // フレーム番号表示
+          // フレーム番号とタイムスタンプ
           ctx.fillStyle = 'blue';
           ctx.font = '12px Arial';
-          ctx.fillText(`Frame: ${frameCount}`, 10, 50);
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 1;
+          const timestamp = new Date().toLocaleTimeString();
+          ctx.strokeText(`Frame: ${frameCount} | ${timestamp}`, 10, 50);
+          ctx.fillText(`Frame: ${frameCount} | ${timestamp}`, 10, 50);
+          
+          // デバッグ: カラフルな枠線を追加して録画が動作していることを確認
+          ctx.strokeStyle = `hsl(${frameCount % 360}, 100%, 50%)`;
+          ctx.lineWidth = 4;
+          ctx.strokeRect(2, 2, compositeCanvas.width - 4, compositeCanvas.height - 4);
           
         } catch (error) {
-          console.warn('フレーム描画エラー:', error);
+          console.error('フレーム描画エラー:', error);
+          
+          // エラー情報を画面に表示
+          ctx.fillStyle = 'red';
+          ctx.font = '14px Arial';
+          ctx.fillText('描画エラー発生', 10, 90);
         }
         
         requestAnimationFrame(drawFrame);
