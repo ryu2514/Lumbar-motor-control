@@ -5,7 +5,6 @@ import {
   radToDeg,
   calculate2DAngle,
   calculateAngleBetweenVectors,
-  calculateMagnitude,
   calculateVector,
   calculateFilteredLumbarAngle,
   calculateMidpoint,
@@ -242,23 +241,7 @@ function calculateStandingHipFlexMetrics(
       normalRange: "0-90°"
     });
 
-    // 既存の腰椎角度計算は共通関数に移行済みのため削除
-
-    // 股関節-腰椎リズム（比率分析）
-    // 腰椎角度は共通関数で計算されるため、ここでは股関節角度のみ使用
-    const hipLumbarRatio = hipFlexAngle > 30 ? Math.min(30, hipFlexAngle) / hipFlexAngle : 0;
-    let rhythmStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    if (hipLumbarRatio > 0.7) rhythmStatus = 'abnormal';
-    else if (hipLumbarRatio > 0.5) rhythmStatus = 'caution';
-    
-    metrics.push({
-      label: "股関節-腰椎リズム",
-      value: Number(hipLumbarRatio.toFixed(2)),
-      unit: "比率",
-      status: rhythmStatus,
-      description: "股関節と腰椎の動作協調性",
-      normalRange: "0.2-0.5"
-    });
+    // 股関節-腰椎リズム（削除済み）
 
     // 動作タイミング分析
     if (movementHistory.length > 10) {
@@ -282,7 +265,7 @@ function calculateStandingHipFlexMetrics(
  * ロックバックテストの評価指標を計算
  */
 function calculateRockBackMetrics(
-  landmarks: any[], // この関数内でこのパラメータは使用されています
+  _landmarks: any[], // アンダースコア接頭辞で未使用パラメータを明示
   metrics: Metric[],
   isLandmarkVisible: (index: number, threshold?: number) => boolean,
   getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number }
@@ -331,31 +314,8 @@ function calculateRockBackMetrics(
       normalRange: "0-10°"
     });
 
-    // 腰椎カーブの維持
-    const spineLength = calculateMagnitude(trunkVector);
-    const lumbarControl = spineLength > 0.1 ? 'normal' : spineLength > 0.05 ? 'caution' : 'abnormal';
-    
-    metrics.push({
-      label: "腰椎カーブ維持",
-      value: Number((spineLength * 100).toFixed(1)),
-      unit: "cm",
-      status: lumbarControl,
-      description: "後方移動時の腰椎生理的カーブ",
-      normalRange: ">10cm"
-    });
-
-    // 骨盤制御
-    const pelvicVector = calculateVector(landmarks[LANDMARKS.RIGHT_HIP], landmarks[LANDMARKS.LEFT_HIP]);
-    const pelvicTilt = radToDeg(Math.atan2(pelvicVector.y, Math.abs(pelvicVector.x)));
-    
-    metrics.push({
-      label: "骨盤制御",
-      value: Number(Math.abs(pelvicTilt).toFixed(1)),
-      unit: "°",
-      status: Math.abs(pelvicTilt) > 15 ? 'abnormal' : Math.abs(pelvicTilt) > 8 ? 'caution' : 'normal',
-      description: "後方移動時の骨盤安定性",
-      normalRange: "0-8°"
-    });
+    // 腰椎カーブの維持（削除済み）
+    // 骨盤制御（削除済み）
   }
 }
 
@@ -402,22 +362,11 @@ function calculateSeatedKneeExtMetrics(
       normalRange: "170-180°"
     });
 
-    // 骨盤の安定性
+    // 中点を計算
     const hipMid = getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP);
     const shoulderMid = getMidpoint(LANDMARKS.LEFT_SHOULDER, LANDMARKS.RIGHT_SHOULDER);
-    const pelvicVector = calculateVector(landmarks[LANDMARKS.RIGHT_HIP], landmarks[LANDMARKS.LEFT_HIP]);
     
-    // 骨盤傾斜の分析
-    const pelvicTilt = radToDeg(Math.atan2(pelvicVector.y, Math.abs(pelvicVector.x)));
-    
-    metrics.push({
-      label: "骨盤安定性",
-      value: Number(Math.abs(pelvicTilt).toFixed(1)),
-      unit: "°",
-      status: Math.abs(pelvicTilt) > 12 ? 'abnormal' : Math.abs(pelvicTilt) > 6 ? 'caution' : 'normal',
-      description: "膝伸展時の骨盤後傾制御",
-      normalRange: "0-6°"
-    });
+    // 骨盤安定性（削除済み）
 
     // 腰椎のアライメント維持
     const trunkVector = calculateVector(hipMid, shoulderMid);
@@ -433,17 +382,7 @@ function calculateSeatedKneeExtMetrics(
       normalRange: "0-15°"
     });
 
-    // 左右対称性
-    const kneeSymmetry = Math.abs(leftKneeAngle - rightKneeAngle);
-    
-    metrics.push({
-      label: "左右対称性",
-      value: Number(kneeSymmetry.toFixed(1)),
-      unit: "°",
-      status: kneeSymmetry > 15 ? 'abnormal' : kneeSymmetry > 8 ? 'caution' : 'normal',
-      description: "左右膝関節の対称的な動き",
-      normalRange: "0-8°"
-    });
+    // 左右対称性（削除済み）
 
     // 代償動作
     if (movementHistory.length > 5) {
