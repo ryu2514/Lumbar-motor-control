@@ -303,7 +303,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
   const [showComparison, setShowComparison] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<string>('初期化中...');
   const [showChart, setShowChart] = useState<boolean>(false);
   const [videoRetryCount, setVideoRetryCount] = useState<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
@@ -400,11 +399,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   // モデルの状態を更新
   useEffect(() => {
     setIsModelLoaded(isReady);
-    if (isReady) {
-      setStatusMessage('姿勢検出モデル読み込み完了');
-    } else {
-      setStatusMessage('姿勢検出モデル読み込み中...');
-    }
   }, [isReady]);
   
   // 指標の計算
@@ -434,7 +428,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       // 動画が再生開始されたら自動的に記録開始
       console.log('Starting auto recording...');
       startRecording();
-      setStatusMessage('動画再生開始 - 角度記録を自動開始しました');
       
       // 動画解析録画も自動開始
       if (!isRecording) {
@@ -444,7 +437,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       // 動画が停止されたら記録も停止
       console.log('Stopping auto recording...');
       stopRecording();
-      setStatusMessage('動画停止 - 角度記録を停止しました');
       
       // 動画解析録画も停止（但し録画データは保持）
       if (isRecording) {
@@ -462,7 +454,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   }, [metrics, timeSeriesData.isRecording, addDataPoint]);
 
   const handleVideoUpload = useCallback((file: File) => {
-    setStatusMessage('動画をアップロード中...');
     const url = URL.createObjectURL(file);
     setUserUploadedVideo(url);
     setUseUploadedVideo(true);
@@ -513,7 +504,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setIsPlaying(false);
     setIsDemoVideoLoaded(false);
     setVideoRetryCount(0);
-    setStatusMessage('新しい動画を読み込み中...');
     
     // タイムアウトをクリア
     if (loadingTimeout) {
@@ -566,17 +556,13 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       if (isPlaying) {
         video.pause();
         console.log('Pause command sent');
-        setStatusMessage('動画を一時停止しました');
       } else {
         console.log('Play command sending...');
         await video.play();
         console.log('Play command completed');
-        setStatusMessage('動画を再生開始しました');
       }
     } catch (error) {
       console.error('動画再生エラー:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      setStatusMessage(`動画再生エラー: ${errorMessage}`);
       setIsPlaying(false);
     }
   }, [isPlaying]);
@@ -597,7 +583,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       // ReadyState 2以上（HAVE_CURRENT_DATA）であることを確認
       if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
         setIsVideoLoaded(true);
-        setStatusMessage('動画読み込み完了 - 再生可能です');
         
         // タイムアウトをクリア
         if (loadingTimeout) {
@@ -610,7 +595,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           videoWidth: video.videoWidth,
           videoHeight: video.videoHeight
         });
-        setStatusMessage('動画メタデータ読み込み中...');
       }
     }
   }, []);
@@ -648,7 +632,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       console.log('Manual video reload triggered');
       setIsVideoLoaded(false);
       setVideoRetryCount(0);
-      setStatusMessage('動画を手動で再読み込み中...');
       
       // 既存のタイムアウトをクリア
       if (loadingTimeout) {
@@ -663,7 +646,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   // デモ動画の手動再読み込み
   const reloadDemoVideo = useCallback(() => {
     console.log('Manual demo video reload triggered');
-    setStatusMessage('デモ動画を手動で再読み込み中...');
     initializeDemoVideo();
   }, [initializeDemoVideo]);
   
@@ -671,7 +653,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const forceDemoVideoLoad = useCallback(() => {
     console.log('🚀 Force demo video load triggered');
     setIsDemoVideoLoaded(true);
-    setStatusMessage('デモ動画を強制的に有効化しました');
   }, []);
   
   // デモ動画を手動で再生
@@ -680,10 +661,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       console.log('🎬 Manual demo video play triggered');
       demoVideoRef.current.play().then(() => {
         console.log('✅ Demo video manual play successful');
-        setStatusMessage('デモ動画を手動で再生開始しました');
       }).catch((error) => {
         console.error('❌ Demo video manual play failed:', error);
-        setStatusMessage('デモ動画の手動再生に失敗しました');
       });
     }
   }, []);
@@ -807,7 +786,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         }, 1000);
       }
       
-      setStatusMessage(`MP4形式で保存: ${filename} (${(mp4Blob.size / 1024 / 1024).toFixed(2)}MB)`);
     } catch (error) {
       console.error('❌ MP4保存エラー:', error);
       alert(`MP4保存に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
@@ -922,7 +900,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         }, 1000);
       }
       
-      setStatusMessage(`解析動画のダウンロードを開始しました (${extension.toUpperCase()}): ${filename}`);
       
     } catch (error) {
       console.error('❌ ダウンロードエラー:', error);
@@ -1096,7 +1073,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         
         if (recordingChunksRef.current.length === 0) {
           console.warn('⚠️ 録画チャンクが空です');
-          setStatusMessage('録画データが見つかりません');
           setIsRecording(false);
           return;
         }
@@ -1109,14 +1085,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         });
         
         setRecordedVideoBlob(blob);
-        setStatusMessage(`解析動画の準備が完了しました (${(blob.size / 1024 / 1024).toFixed(2)}MB)`);
         setIsRecording(false);
         recordingChunksRef.current = []; // チャンクをクリア
       };
 
       mediaRecorder.onerror = (event) => {
         console.error('📹 Recording error:', event);
-        setStatusMessage('録画エラーが発生しました');
         setIsRecording(false);
       };
 
@@ -1328,9 +1302,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       mediaRecorder.start();
       drawFrame();
       
-      const hasPoser = !!(landmarks && landmarks.length > 0);
-      setStatusMessage(`解析動画の自動録画を開始しました（ポーズ検出: ${hasPoser ? 'あり' : 'なし'}）`);
-      
     } catch (error) {
       console.error('Recording error:', error);
       alert('録画の開始に失敗しました');
@@ -1343,7 +1314,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     if (mediaRecorderRef.current && isRecording) {
       console.log('🛑 Stopping video recording...');
       mediaRecorderRef.current.stop();
-      setStatusMessage('解析動画の録画を停止しています...');
     }
   }, [isRecording]);
 
@@ -1454,7 +1424,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         console.log('🧹 JSON クリーンアップ完了');
       }, 1000);
       
-      setStatusMessage(`解析データのダウンロードを開始しました: ${filename}`);
       
     } catch (error) {
       console.error('❌ 解析データダウンロードエラー:', error);
@@ -1484,7 +1453,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       downloadRecordedVideo();
     }, 500);
     
-    setStatusMessage('すべての解析結果のダウンロードを開始しました');
   }, [downloadAnalysisData, downloadRecordedVideo, getStatistics, timeSeriesData, recordedVideoBlob]);
 
   // JSXレンダリング部分
@@ -1530,7 +1498,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   onLoadStart={() => {
                     console.log('Video load start event');
                     setIsVideoLoaded(false);
-                    setStatusMessage('動画読み込み開始中...');
                     
                     // 既存のタイムアウトをクリア
                     if (loadingTimeout) {
@@ -1541,7 +1508,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     const timeoutId = window.setTimeout(() => {
                       if (!isVideoLoaded) {
                         console.warn('⏰ Video loading timeout');
-                        setStatusMessage('動画読み込みがタイムアウトしました - 再読み込みボタンをお試しください');
                       }
                     }, 30000);
                     
@@ -1549,7 +1515,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   }}
                   onLoadedMetadata={() => {
                     console.log('Video metadata loaded');
-                    setStatusMessage('動画メタデータ読み込み完了');
                   }}
                   onLoadedData={handleVideoLoaded}
                   onCanPlay={() => {
@@ -1558,7 +1523,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       const video = videoRef.current;
                       if (video.readyState >= 3 && video.videoWidth > 0) {
                         setIsVideoLoaded(true);
-                        setStatusMessage('動画準備完了 - 再生ボタンを押すと自動解析が開始されます');
                         
                         // タイムアウトをクリア
                         if (loadingTimeout) {
@@ -1574,7 +1538,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       const video = videoRef.current;
                       if (video.videoWidth > 0 && video.videoHeight > 0) {
                         setIsVideoLoaded(true);
-                        setStatusMessage('動画準備完了 - 再生ボタンを押すと自動解析が開始されます');
                         
                         // タイムアウトをクリア
                         if (loadingTimeout) {
@@ -1587,7 +1550,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   onPlay={() => {
                     console.log('Video play event triggered');
                     setIsPlaying(true);
-                    setStatusMessage('動画解析中... 再生が終了すると自動的にダウンロードできます');
                     
                     // メイン動画が再生開始されたらデモ動画も再生
                     if (showComparison && userUploadedVideo && demoVideoRef.current && isDemoVideoLoaded) {
@@ -1613,7 +1575,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   onEnded={() => {
                     console.log('Video ended event triggered');
                     setIsPlaying(false);
-                    setStatusMessage('動画解析完了！下の「解析動画ダウンロード」ボタンからダウンロードできます');
                   }}
                   onError={(e) => {
                     console.error('Video error:', e);
@@ -1630,7 +1591,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       if (videoRetryCount < 3) {
                         console.log(`動画読み込み再試行中... (${videoRetryCount + 1}/3)`);
                         setVideoRetryCount(prev => prev + 1);
-                        setStatusMessage(`動画読み込み再試行中... (${videoRetryCount + 1}/3)`);
                         
                         // 1秒後に再試行
                         setTimeout(() => {
@@ -1638,7 +1598,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                         }, 1000);
                       } else {
                         setIsVideoLoaded(false);
-                        setStatusMessage('動画の読み込みに失敗しました - 別の動画を試してください');
                       }
                     }
                   }}
@@ -1652,7 +1611,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                         if (duration > 0) {
                           const bufferedPercent = (bufferedEnd / duration) * 100;
                           if (bufferedPercent < 100) {
-                            setStatusMessage(`動画読み込み中... ${bufferedPercent.toFixed(0)}%`);
                           }
                         }
                       }
@@ -2040,109 +1998,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               />
             </div>
             
-            {/* ステータス表示 */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-center space-x-2 mb-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                <h3 className="text-sm font-semibold text-gray-800">システム状況</h3>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">動画状態:</span>
-                  <div className="flex items-center space-x-2">
-                    {!isVideoLoaded && statusMessage.includes('読み込み') && (
-                      <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                    )}
-                    {statusMessage.includes('タイムアウト') && (
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    )}
-                    {isVideoLoaded && (
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    )}
-                    <span className="text-sm font-medium text-gray-900">{statusMessage}</span>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">姿勢検出モデル:</span>
-                  <div className="flex items-center space-x-1">
-                    {isModelLoaded ? (
-                      <>
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-green-700">準備完了</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium text-yellow-700">読み込み中</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                
-                {showComparison && userUploadedVideo && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">デモ動画:</span>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex items-center space-x-1">
-                        {isDemoVideoLoaded ? (
-                          <>
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-xs text-green-700">ロード完了</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-orange-700">ロード中</span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        {isDemoReady ? (
-                          <>
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-xs text-green-700">解析準備完了</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-yellow-700">解析準備中</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-700">ポーズ検出:</span>
-                  <div className="flex items-center space-x-1">
-                    {landmarks && landmarks.length > 0 ? (
-                      <>
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-green-700">検出中 ({landmarks.length}人)</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                        <span className="text-sm font-medium text-gray-600">未検出</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                
-                {isRecording && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">録画状態:</span>
-                    <div className="flex items-center space-x-1">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium text-red-700">解析動画録画中</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
         
