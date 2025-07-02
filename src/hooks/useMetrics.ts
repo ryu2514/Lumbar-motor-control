@@ -177,8 +177,16 @@ function calculateOverallScore(metrics: Metric[]): Metric {
       // 既に100点満点
       normalizedScore = metric.value;
     } else if (metric.label === "腰椎過剰運動量") {
-      // 0-5°が100点、それを超えると減点
-      normalizedScore = Math.max(0, 100 - (metric.value * 20));
+      // 0-5°が100点、5-10°で段階的減点、10-20°で更に減点
+      if (metric.value <= 5) {
+        normalizedScore = 100;
+      } else if (metric.value <= 10) {
+        normalizedScore = 100 - ((metric.value - 5) * 10); // 5°超えで10点ずつ減点
+      } else if (metric.value <= 20) {
+        normalizedScore = Math.max(0, 50 - ((metric.value - 10) * 3)); // 10°超えで3点ずつ減点
+      } else {
+        normalizedScore = Math.max(0, 20 - ((metric.value - 20) * 1)); // 20°超えで1点ずつ減点
+      }
     } else if (metric.label === "腰椎屈曲・伸展角度") {
       // -15°〜+15°の範囲で100点、それを超えると減点
       const deviation = Math.abs(metric.value);
