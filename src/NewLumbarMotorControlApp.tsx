@@ -643,29 +643,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, [loadingTimeout]);
   
-  // デモ動画の手動再読み込み
-  const reloadDemoVideo = useCallback(() => {
-    console.log('Manual demo video reload triggered');
-    initializeDemoVideo();
-  }, [initializeDemoVideo]);
-  
-  // デモ動画を強制的に有効化（デバッグ用）
-  const forceDemoVideoLoad = useCallback(() => {
-    console.log('🚀 Force demo video load triggered');
-    setIsDemoVideoLoaded(true);
-  }, []);
-  
-  // デモ動画を手動で再生
-  const playDemoVideo = useCallback(() => {
-    if (demoVideoRef.current) {
-      console.log('🎬 Manual demo video play triggered');
-      demoVideoRef.current.play().then(() => {
-        console.log('✅ Demo video manual play successful');
-      }).catch((error) => {
-        console.error('❌ Demo video manual play failed:', error);
-      });
-    }
-  }, []);
 
   // デバイス検出
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1935,55 +1912,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 </button>
               </div>
 
-              {/* デバッグ・メンテナンス */}
-              <details className="bg-gray-50 rounded-lg p-3">
-                <summary className="text-sm text-gray-600 cursor-pointer hover:text-gray-800 font-medium">
-                  トラブルシューティング・詳細設定
-                </summary>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {showComparison && userUploadedVideo && (
-                    <>
-                      <button 
-                        className="px-3 py-2 rounded border border-blue-300 bg-blue-50 hover:bg-blue-100 flex items-center space-x-1 text-sm text-blue-700"
-                        onClick={reloadDemoVideo}
-                        title="デモ動画再読み込み"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                          <path d="M21 3v5h-5"/>
-                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                          <path d="M3 21v-5h5"/>
-                        </svg>
-                        <span>デモ動画再読み込み</span>
-                      </button>
-                      
-                      <button 
-                        className="px-3 py-2 rounded border border-green-300 bg-green-50 hover:bg-green-100 flex items-center space-x-1 text-sm text-green-700"
-                        onClick={forceDemoVideoLoad}
-                        title="デモ動画を強制的に有効化"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M9 12l2 2 4-4"/>
-                          <circle cx="12" cy="12" r="9"/>
-                        </svg>
-                        <span>デモ動画強制有効</span>
-                      </button>
-                      
-                      <button 
-                        className="px-3 py-2 rounded border border-purple-300 bg-purple-50 hover:bg-purple-100 flex items-center space-x-1 text-sm text-purple-700"
-                        onClick={playDemoVideo}
-                        title="デモ動画を手動で再生"
-                        disabled={!isDemoVideoLoaded}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polygon points="5,3 19,12 5,21"/>
-                        </svg>
-                        <span>デモ動画手動再生</span>
-                      </button>
-                    </>
-                  )}
-                </div>
-              </details>
               
               <input
                 ref={fileInputRef}
