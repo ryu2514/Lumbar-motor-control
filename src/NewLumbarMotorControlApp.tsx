@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, Play, Pause, BarChart3, Activity } from 'lucide-react';
+import { Upload, Play, Pause, BarChart3 } from 'lucide-react';
 
 // MediaPipe の型定義（型の互換性の問題により直接使用せず）
 
@@ -309,7 +309,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordedVideoBlob, setRecordedVideoBlob] = useState<Blob | null>(null);
-  const [preferredVideoFormat, setPreferredVideoFormat] = useState<'auto' | 'mp4' | 'webm'>('auto');
+  const [preferredVideoFormat] = useState<'auto' | 'mp4' | 'webm'>('mp4');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   
@@ -638,16 +638,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setShowChart(prev => !prev);
   }, []);
   
-  // 記録開始/停止の切り替え（手動制御）
-  const toggleRecording = useCallback(() => {
-    if (timeSeriesData.isRecording) {
-      stopRecording();
-      setStatusMessage('手動で記録を停止しました');
-    } else {
-      startRecording();
-      setStatusMessage('手動で角度の記録を開始しました');
-    }
-  }, [timeSeriesData.isRecording, startRecording, stopRecording]);
 
   // ファイルアップロード用の隠しInput参照
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1853,24 +1843,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   <span>動画をアップロード</span>
                 </button>
                 
-                {/* 記録ボタン */}
-                <button 
-                  className={`px-4 py-3 rounded-lg border flex items-center space-x-2 text-sm font-medium shadow-sm min-h-[48px] ${
-                    timeSeriesData.isRecording 
-                      ? 'bg-red-100 border-red-400 text-red-800' 
-                      : 'bg-blue-100 border-blue-400 text-blue-800'
-                  }`}
-                  onClick={toggleRecording}
-                  disabled={!isVideoLoaded}
-                  title={isPlaying ? '自動記録中 - 手動での停止も可能' : '手動記録制御'}
-                >
-                  <Activity size={18} />
-                  <span>
-                    {timeSeriesData.isRecording 
-                      ? (isPlaying ? '記録中' : '記録停止') 
-                      : '記録開始'}
-                  </span>
-                </button>
                 
                 {/* 動画再読み込みボタン */}
                 <button 
@@ -1906,7 +1878,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   <span>
                     {recordedVideoBlob 
                       ? `解析動画ダウンロード (${(recordedVideoBlob.size / 1024 / 1024).toFixed(2)}MB, ${recordedVideoBlob.type.includes('mp4') ? 'MP4' : 'WebM'})` 
-                      : `録画準備中... (${preferredVideoFormat === 'auto' ? 'MP4優先' : preferredVideoFormat.toUpperCase()})`}
+                      : '録画準備中... (MP4形式)'}
                   </span>
                 </button>
                 
@@ -1961,37 +1933,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 </button>
               </div>
 
-              {/* 録画設定 */}
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className="text-sm text-gray-600 font-medium mr-2">録画形式:</span>
-                
-                <select 
-                  value={preferredVideoFormat}
-                  onChange={(e) => setPreferredVideoFormat(e.target.value as 'auto' | 'mp4' | 'webm')}
-                  className="px-3 py-1 rounded border border-gray-300 text-sm bg-white"
-                >
-                  <option value="auto">自動選択 (MP4優先)</option>
-                  <option value="mp4">MP4形式</option>
-                  <option value="webm">WebM形式</option>
-                </select>
-                
-                <span className="text-xs text-gray-500">
-                  {(() => {
-                    const mp4Supported = MediaRecorder.isTypeSupported('video/mp4') || 
-                                       MediaRecorder.isTypeSupported('video/mp4; codecs="avc1.42E01E"') ||
-                                       MediaRecorder.isTypeSupported('video/mp4; codecs=h264');
-                    const webmSupported = MediaRecorder.isTypeSupported('video/webm');
-                    
-                    if (preferredVideoFormat === 'mp4') {
-                      return mp4Supported ? '✓ MP4ネイティブ対応' : '⚠ MP4非対応(拡張子変更で保存)';
-                    } else if (preferredVideoFormat === 'webm') {
-                      return webmSupported ? '✓ WebM対応' : '⚠ WebM非対応';
-                    } else {
-                      return mp4Supported ? '✓ MP4優先' : webmSupported ? '✓ WebM使用' : '⚠ 制限あり';
-                    }
-                  })()}
-                </span>
-              </div>
 
               {/* 表示オプション */}
               <div className="flex flex-wrap items-center gap-2">

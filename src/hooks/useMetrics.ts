@@ -142,6 +142,10 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
         default:
           break;
       }
+      // 総合点を計算
+      const overallScore = calculateOverallScore(calculatedMetrics);
+      calculatedMetrics.push(overallScore);
+      
     } catch (error) {
       console.error("Metrics calculation error:", error);
     }
@@ -151,6 +155,107 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
 
   return metrics;
 };
+
+/**
+ * 総合点を計算する関数
+ */
+function calculateOverallScore(metrics: Metric[]): Metric {
+  if (metrics.length === 0) {
+    return {
+      label: "総合評価スコア",
+      value: 0,
+      unit: "点",
+      status: 'caution',
+      description: '評価データが不足しています',
+      normalRange: "80-100点（優秀）"
+    };
+  }
+
+  let totalScore = 0;
+  let validMetrics = 0;
+
+  metrics.forEach(metric => {
+    let normalizedScore = 0;
+
+    // メトリクスの種類に応じて100点満点に正規化
+    if (metric.label === "腰椎安定性スコア") {
+      // 既に100点満点
+      normalizedScore = metric.value;
+    } else if (metric.label === "腰椎過剰運動量") {
+      // 0-5°が100点、それを超えると減点
+      normalizedScore = Math.max(0, 100 - (metric.value * 20));
+    } else if (metric.label === "腰椎屈曲・伸展角度") {
+      // -15°〜+15°の範囲で100点、それを超えると減点
+      const deviation = Math.abs(metric.value);
+      normalizedScore = Math.max(0, 100 - (Math.max(0, deviation - 15) * 5));
+    } else if (metric.label === "股関節屈曲角度") {
+      // 0-90°の範囲で評価、90°で100点
+      if (metric.value <= 90) {
+        normalizedScore = 100;
+      } else if (metric.value <= 120) {
+        normalizedScore = 100 - ((metric.value - 90) * 2); // 90°超えで減点
+      } else {
+        normalizedScore = Math.max(0, 40 - ((metric.value - 120) * 2)); // 120°超えでさらに減点
+      }
+    } else if (metric.label === "股関節-膝関節角度") {
+      // 110-140°の範囲で100点
+      if (metric.value >= 110 && metric.value <= 140) {
+        normalizedScore = 100;
+      } else if (metric.value >= 90) {
+        normalizedScore = Math.max(0, 100 - Math.abs(metric.value - 125) * 2);
+      } else {
+        normalizedScore = Math.max(0, 40 - ((90 - metric.value) * 2));
+      }
+    } else if (metric.label === "膝関節伸展角度") {
+      // 170-180°の範囲で100点
+      if (metric.value >= 170) {
+        normalizedScore = 100;
+      } else if (metric.value >= 160) {
+        normalizedScore = 100 - ((170 - metric.value) * 5);
+      } else {
+        normalizedScore = Math.max(0, 50 - ((160 - metric.value) * 2));
+      }
+    } else if (metric.label === "腰椎アライメント") {
+      // 0-15°の範囲で100点
+      if (metric.value <= 15) {
+        normalizedScore = 100 - (metric.value * 2);
+      } else if (metric.value <= 30) {
+        normalizedScore = Math.max(0, 70 - ((metric.value - 15) * 3));
+      } else {
+        normalizedScore = Math.max(0, 25 - ((metric.value - 30) * 1));
+      }
+    }
+
+    totalScore += normalizedScore;
+    validMetrics++;
+  });
+
+  const averageScore = validMetrics > 0 ? totalScore / validMetrics : 0;
+
+  // 総合評価ステータスを決定
+  let status: 'normal' | 'caution' | 'abnormal' = 'normal';
+  let description = '総合的な運動制御評価';
+
+  if (averageScore >= 80) {
+    status = 'normal';
+    description = '優秀な運動制御能力';
+  } else if (averageScore >= 60) {
+    status = 'caution';
+    description = '良好な運動制御能力（改善の余地あり）';
+  } else {
+    status = 'abnormal';
+    description = '運動制御能力に課題があります';
+  }
+
+  return {
+    label: "総合評価スコア",
+    value: Number(averageScore.toFixed(1)),
+    unit: "点",
+    status: status,
+    description: description,
+    normalRange: "80-100点（優秀）"
+  };
+}
 
 /**
  * 動的腰椎安定性評価を計算して指標に追加する関数
