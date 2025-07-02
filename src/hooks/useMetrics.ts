@@ -30,27 +30,33 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       // データが無い場合でも基本的な待機状態メトリクスを表示
       const waitingMetrics: Metric[] = [];
       
-      // 座位膝関節伸展テスト以外は腰椎角度メトリクスを含める
-      if (testType !== 'seatedKneeExt') {
-        waitingMetrics.push(
-          {
-            label: "腰椎過剰運動量",
-            value: 0,
-            unit: "°",
-            status: 'caution',
-            description: '姿勢データを取得中...',
-            normalRange: "0-5°（良好な制御）"
-          },
-          {
-            label: "腰椎屈曲・伸展角度",
-            value: 0,
-            unit: "°",
-            status: 'caution',
-            description: '姿勢データを取得中...',
-            normalRange: "-15° 〜 +15°（中立位）"
-          }
-        );
-      }
+      // 全てのテストに腰椎安定性スコアを含める
+      waitingMetrics.push(
+        {
+          label: "腰椎安定性スコア",
+          value: 0,
+          unit: "点",
+          status: 'caution',
+          description: '姿勢データを取得中...',
+          normalRange: "80-100点（優秀な制御）"
+        },
+        {
+          label: "腰椎過剰運動量",
+          value: 0,
+          unit: "°",
+          status: 'caution',
+          description: '姿勢データを取得中...',
+          normalRange: "0-5°（良好な制御）"
+        },
+        {
+          label: "腰椎屈曲・伸展角度",
+          value: 0,
+          unit: "°",
+          status: 'caution',
+          description: '姿勢データを取得中...',
+          normalRange: "-15° 〜 +15°（中立位）"
+        }
+      );
       
       // テスト固有のメトリクスを追加
       if (testType === 'standingHipFlex') {
@@ -126,7 +132,8 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           calculateRockBackMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint);
           break;
         case "seatedKneeExt":
-          // 座位膝関節伸展テスト：腰椎角度メトリクスを除外
+          // 座位膝関節伸展テスト：腰椎角度メトリクスを含める
+          addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible);
           calculateSeatedKneeExtMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint, movementHistory);
           break;
         default:
@@ -168,7 +175,10 @@ function calculateOverallScore(metrics: Metric[]): Metric {
     let normalizedScore = 0;
 
     // メトリクスの種類に応じて100点満点に正規化
-    if (metric.label === "腰椎過剰運動量") {
+    if (metric.label === "腰椎安定性スコア") {
+      // 既に100点満点
+      normalizedScore = metric.value;
+    } else if (metric.label === "腰椎過剰運動量") {
       // 0-5°が100点、それを超えると減点
       normalizedScore = Math.max(0, 100 - (metric.value * 20));
     } else if (metric.label === "腰椎屈曲・伸展角度") {
@@ -272,7 +282,32 @@ function addLumbarFlexionExtensionMetric(
     // 腰椎角度を計算
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
     
-    // 腰椎過剰運動量（現在の角度の絶対値）
+    // 1. 腰椎安定性スコア（シンプルな評価）
+    const lumbarStabilityScore = Math.max(0, 100 - Math.abs(lumbarAngle) * 3);
+    let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
+    let stabilityDescription = 'リアルタイム腰椎安定性';
+    
+    if (lumbarStabilityScore >= 80) {
+      stabilityStatus = 'normal';
+      stabilityDescription = '優秀な腰椎制御';
+    } else if (lumbarStabilityScore >= 60) {
+      stabilityStatus = 'caution';
+      stabilityDescription = '軽度の腰椎不安定性';
+    } else {
+      stabilityStatus = 'abnormal';
+      stabilityDescription = '腰椎制御不良';
+    }
+    
+    metrics.push({
+      label: "腰椎安定性スコア",
+      value: Number(lumbarStabilityScore.toFixed(1)),
+      unit: "点",
+      status: stabilityStatus,
+      description: stabilityDescription,
+      normalRange: "80-100点（優秀な制御）"
+    });
+    
+    // 2. 腰椎過剰運動量（現在の角度の絶対値）
     const excessiveMovement = Math.abs(lumbarAngle);
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
       excessiveMovement < 5 ? 'normal' :
