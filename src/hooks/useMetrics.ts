@@ -28,32 +28,78 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
 
     if (!result || !result.worldLandmarks || result.worldLandmarks.length === 0) {
       // データが無い場合でも基本的な待機状態メトリクスを表示
-      const waitingMetrics: Metric[] = [
-        {
-          label: "腰椎安定性スコア",
-          value: 0,
-          unit: "点",
-          status: 'caution',
-          description: '姿勢データを取得中...',
-          normalRange: "80-100点（優秀な制御）"
-        },
-        {
-          label: "腰椎過剰運動量",
+      const waitingMetrics: Metric[] = [];
+      
+      // 座位膝関節伸展テスト以外は腰椎角度メトリクスを含める
+      if (testType !== 'seatedKneeExt') {
+        waitingMetrics.push(
+          {
+            label: "腰椎安定性スコア",
+            value: 0,
+            unit: "点",
+            status: 'caution',
+            description: '姿勢データを取得中...',
+            normalRange: "80-100点（優秀な制御）"
+          },
+          {
+            label: "腰椎過剰運動量",
+            value: 0,
+            unit: "°",
+            status: 'caution',
+            description: '姿勢データを取得中...',
+            normalRange: "0-5°（良好な制御）"
+          },
+          {
+            label: "腰椎屈曲・伸展角度",
+            value: 0,
+            unit: "°",
+            status: 'caution',
+            description: '姿勢データを取得中...',
+            normalRange: "-15° 〜 +15°（中立位）"
+          }
+        );
+      }
+      
+      // テスト固有のメトリクスを追加
+      if (testType === 'standingHipFlex') {
+        waitingMetrics.push({
+          label: "股関節屈曲角度",
           value: 0,
           unit: "°",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "0-5°（良好な制御）"
-        },
-        {
-          label: "腰椎屈曲・伸展角度",
+          normalRange: "0-90°"
+        });
+      } else if (testType === 'rockBack') {
+        waitingMetrics.push({
+          label: "股関節-膝関節角度",
           value: 0,
           unit: "°",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "-15° 〜 +15°（中立位）"
-        }
-      ];
+          normalRange: "110-140°"
+        });
+      } else if (testType === 'seatedKneeExt') {
+        waitingMetrics.push(
+          {
+            label: "膝関節伸展角度",
+            value: 0,
+            unit: "°",
+            status: 'caution',
+            description: '姿勢データを取得中...',
+            normalRange: "170-180°"
+          },
+          {
+            label: "腰椎アライメント",
+            value: 0,
+            unit: "°",
+            status: 'caution',
+            description: '姿勢データを取得中...',
+            normalRange: "0-15°"
+          }
+        );
+      }
+      
       setMetrics(waitingMetrics);
       return;
     }
@@ -78,18 +124,19 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
 
     try {
       // 各テスト種類に応じた評価指標を計算
-      // 全テストで腰椎屈曲・伸展角度を計算
-      addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible);
-      
-      // 各テスト種類に応じた評価指標を計算
       switch (testType) {
         case "standingHipFlex":
+          // 立位股関節屈曲テスト：腰椎角度メトリクスを含める
+          addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible);
           calculateStandingHipFlexMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint, movementHistory);
           break;
         case "rockBack":
+          // ロックバックテスト：腰椎角度メトリクスを含める
+          addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible);
           calculateRockBackMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint);
           break;
         case "seatedKneeExt":
+          // 座位膝関節伸展テスト：腰椎角度メトリクスを除外
           calculateSeatedKneeExtMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint, movementHistory);
           break;
         default:
