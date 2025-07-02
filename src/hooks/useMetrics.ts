@@ -84,14 +84,6 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       } else if (testType === 'seatedKneeExt') {
         waitingMetrics.push(
           {
-            label: "膝関節伸展角度",
-            value: 0,
-            unit: "°",
-            status: 'caution',
-            description: '姿勢データを取得中...',
-            normalRange: "170-180°"
-          },
-          {
             label: "腰椎アライメント",
             value: 0,
             unit: "°",
@@ -208,15 +200,6 @@ function calculateOverallScore(metrics: Metric[]): Metric {
         normalizedScore = Math.max(0, 100 - Math.abs(metric.value - 125) * 2);
       } else {
         normalizedScore = Math.max(0, 40 - ((90 - metric.value) * 2));
-      }
-    } else if (metric.label === "膝関節伸展角度") {
-      // 170-180°の範囲で100点
-      if (metric.value >= 170) {
-        normalizedScore = 100;
-      } else if (metric.value >= 160) {
-        normalizedScore = 100 - ((170 - metric.value) * 5);
-      } else {
-        normalizedScore = Math.max(0, 50 - ((160 - metric.value) * 2));
       }
     } else if (metric.label === "腰椎アライメント") {
       // 0-15°の範囲で100点
@@ -542,30 +525,6 @@ function calculateSeatedKneeExtMetrics(
       isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) &&
       isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER)) {
     
-    // 膝関節伸展角度
-    const leftKneeAngle = radToDeg(calculate2DAngle(
-      landmarks[LANDMARKS.LEFT_HIP],
-      landmarks[LANDMARKS.LEFT_KNEE],
-      landmarks[LANDMARKS.LEFT_ANKLE]
-    ));
-    
-    const rightKneeAngle = radToDeg(calculate2DAngle(
-      landmarks[LANDMARKS.RIGHT_HIP],
-      landmarks[LANDMARKS.RIGHT_KNEE],
-      landmarks[LANDMARKS.RIGHT_ANKLE]
-    ));
-    
-    const avgKneeAngle = (leftKneeAngle + rightKneeAngle) / 2;
-    
-    metrics.push({
-      label: "膝関節伸展角度",
-      value: Number(avgKneeAngle.toFixed(1)),
-      unit: "°",
-      status: avgKneeAngle < 160 ? 'abnormal' : avgKneeAngle < 170 ? 'caution' : 'normal',
-      description: "座位での膝関節伸展可動域",
-      normalRange: "170-180°"
-    });
-
     // 中点を計算
     const hipMid = getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP);
     const shoulderMid = getMidpoint(LANDMARKS.LEFT_SHOULDER, LANDMARKS.RIGHT_SHOULDER);

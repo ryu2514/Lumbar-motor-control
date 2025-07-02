@@ -53,7 +53,6 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ metrics, previousMetr
     // 値が大きい方が良い指標（角度、安定性など）
     const higherIsBetter = [
       '股関節屈曲角度',
-      '膝関節伸展角度',
       '腰椎カーブ維持'
     ];
     
