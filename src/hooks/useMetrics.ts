@@ -84,6 +84,14 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       } else if (testType === 'seatedKneeExt') {
         waitingMetrics.push(
           {
+            label: "座位腰椎制御スコア",
+            value: 0,
+            unit: "点",
+            status: 'caution',
+            description: '姿勢データを取得中...',
+            normalRange: "70-100点（良好な制御）"
+          },
+          {
             label: "腰椎アライメント",
             value: 0,
             unit: "°",
