@@ -130,8 +130,8 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           calculateRockBackMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint);
           break;
         case "seatedKneeExt":
-          // 座位膝関節伸展テスト：腰椎安定性スコアと腰椎過剰運動量のみ
-          addLumbarMetricsForSeatedTest(landmarks, calculatedMetrics, isLandmarkVisible);
+          // 座位膝関節伸展テスト：シンプルな腰椎制御評価
+          addSeatedLumbarControlMetric(landmarks, calculatedMetrics, isLandmarkVisible);
           calculateSeatedKneeExtMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint, movementHistory);
           break;
         default:
@@ -209,6 +209,9 @@ function calculateOverallScore(metrics: Metric[]): Metric {
       } else {
         normalizedScore = Math.max(0, 40 - ((90 - metric.value) * 2));
       }
+    } else if (metric.label === "座位腰椎制御スコア") {
+      // 既に適切にスコア化されているのでそのまま使用
+      normalizedScore = metric.value;
     } else if (metric.label === "腰椎アライメント") {
       // 0-15°の範囲で100点
       if (metric.value <= 15) {
@@ -349,9 +352,9 @@ function addLumbarFlexionExtensionMetric(
 }
 
 /**
- * 座位膝関節伸展テスト用の腰椎メトリクス（腰椎屈曲・伸展角度を除外）
+ * 座位膝関節伸展テスト用のシンプルな腰椎制御評価
  */
-function addLumbarMetricsForSeatedTest(
+function addSeatedLumbarControlMetric(
   landmarks: Array<{x: number, y: number, z: number}>,
   metrics: Metric[],
   isLandmarkVisible: (index: number) => boolean
@@ -376,51 +379,43 @@ function addLumbarMetricsForSeatedTest(
     // 腰椎角度を計算
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
     
-    // 1. 腰椎安定性スコア（シンプルな評価）
-    const lumbarStabilityScore = Math.max(0, 100 - Math.abs(lumbarAngle) * 3);
-    let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    let stabilityDescription = 'リアルタイム腰椎安定性';
+    // 座位腰椎制御スコア（総合的な評価）
+    const excessiveMovement = Math.abs(lumbarAngle);
     
-    if (lumbarStabilityScore >= 80) {
-      stabilityStatus = 'normal';
-      stabilityDescription = '優秀な腰椎制御';
-    } else if (lumbarStabilityScore >= 60) {
-      stabilityStatus = 'caution';
-      stabilityDescription = '軽度の腰椎不安定性';
+    // より現実的な評価基準
+    let controlScore = 0;
+    if (excessiveMovement <= 5) {
+      controlScore = 100; // 優秀
+    } else if (excessiveMovement <= 10) {
+      controlScore = 100 - ((excessiveMovement - 5) * 8); // 5°超えで8点ずつ減点
+    } else if (excessiveMovement <= 20) {
+      controlScore = Math.max(0, 60 - ((excessiveMovement - 10) * 4)); // 10°超えで4点ずつ減点
     } else {
-      stabilityStatus = 'abnormal';
-      stabilityDescription = '腰椎制御不良';
+      controlScore = Math.max(0, 20 - ((excessiveMovement - 20) * 2)); // 20°超えで2点ずつ減点
+    }
+    
+    let status: 'normal' | 'caution' | 'abnormal' = 'normal';
+    let description = '座位膝伸展時の腰椎制御';
+    
+    if (controlScore >= 70) {
+      status = 'normal';
+      description = '良好な腰椎制御';
+    } else if (controlScore >= 50) {
+      status = 'caution';
+      description = '腰椎制御にやや課題';
+    } else {
+      status = 'abnormal';
+      description = '腰椎制御に問題';
     }
     
     metrics.push({
-      label: "腰椎安定性スコア",
-      value: Number(lumbarStabilityScore.toFixed(1)),
+      label: "座位腰椎制御スコア",
+      value: Number(controlScore.toFixed(1)),
       unit: "点",
-      status: stabilityStatus,
-      description: stabilityDescription,
-      normalRange: "80-100点（優秀な制御）"
+      status: status,
+      description: description,
+      normalRange: "70-100点（良好な制御）"
     });
-    
-    // 2. 腰椎過剰運動量（現在の角度の絶対値）
-    const excessiveMovement = Math.abs(lumbarAngle);
-    const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
-      excessiveMovement < 5 ? 'normal' :
-      excessiveMovement < 10 ? 'caution' : 'abnormal';
-    
-    const excessiveDescription = 
-      excessiveMovement < 5 ? '最小限の過剰運動' :
-      excessiveMovement < 10 ? '軽度の過剰運動' : '顕著な過剰運動';
-    
-    metrics.push({
-      label: "腰椎過剰運動量",
-      value: Number(excessiveMovement.toFixed(1)),
-      unit: "°",
-      status: excessiveStatus,
-      description: excessiveDescription,
-      normalRange: "0-5°（良好な制御）"
-    });
-    
-    // 腰椎屈曲・伸展角度は座位膝関節伸展テストでは除外
   }
 }
 
