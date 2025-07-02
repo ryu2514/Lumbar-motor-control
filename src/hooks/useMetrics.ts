@@ -510,7 +510,7 @@ function calculateRockBackMetrics(
  * 座位膝関節伸展テストの評価指標を計算
  */
 function calculateSeatedKneeExtMetrics(
-  landmarks: any[],
+  _landmarks: any[], // 未使用パラメータをアンダースコア接頭辞で明示
   metrics: Metric[],
   isLandmarkVisible: (index: number, threshold?: number) => boolean,
   getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number },
