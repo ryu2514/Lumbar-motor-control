@@ -67,12 +67,6 @@ const MetricsDisplay: React.FC<MetricsDisplayProps> = ({ metrics }) => {
       return '運動協調性にやや課題があります。運動学習を促進するエクササイズを検討してください。';
     }
 
-    if (label.includes('動作速度')) {
-      if (status === 'abnormal') {
-        return '動作速度が速すぎます。ゆっくりとした制御された動作の練習が必要です。';
-      }
-      return '動作速度をさらに制御することで、安定性が向上する可能性があります。';
-    }
 
     if (label.includes('安定性')) {
       if (status === 'abnormal') {
@@ -88,12 +82,6 @@ const MetricsDisplay: React.FC<MetricsDisplayProps> = ({ metrics }) => {
       return '左右のバランスにやや課題があります。両側トレーニングを検討してください。';
     }
 
-    if (label.includes('代償')) {
-      if (status === 'abnormal') {
-        return '代償動作が顕著です。適切な運動パターンの再教育が必要です。';
-      }
-      return '軽度の代償動作が見られます。運動の質に注意してトレーニングしてください。';
-    }
 
     // デフォルトのノート
     return status === 'abnormal'

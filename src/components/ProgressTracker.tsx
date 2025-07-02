@@ -61,13 +61,10 @@ const ProgressTracker: React.FC<ProgressTrackerProps> = ({ metrics, previousMetr
     const lowerIsBetter = [
       '腰椎屈曲角度',
       '股関節-腰椎リズム',
-      '動作速度',
-      '体幹安定性',
       '骨盤制御',
       '骨盤安定性',
       '腰椎アライメント',
-      '左右対称性',
-      '代償動作'
+      '左右対称性'
     ];
     
     if (higherIsBetter.some(item => label.includes(item))) {
