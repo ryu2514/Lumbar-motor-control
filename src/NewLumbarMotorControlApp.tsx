@@ -662,87 +662,61 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.mp4`;
       
       if (isMobile) {
-        // モバイルデバイスの場合：新しいタブで開く
-        console.log('📱 モバイルデバイス検出: 新しいタブで動画を開きます');
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.document.write(`
-            <html>
-              <head>
-                <title>解析動画ダウンロード</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                  body { 
-                    margin: 0; 
-                    padding: 20px; 
-                    font-family: Arial, sans-serif; 
-                    background: #f5f5f5; 
-                    text-align: center;
-                  }
-                  .container { 
-                    max-width: 400px; 
-                    margin: 0 auto; 
-                    background: white; 
-                    padding: 20px; 
-                    border-radius: 10px; 
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                  }
-                  video { 
-                    width: 100%; 
-                    height: auto; 
-                    border-radius: 8px; 
-                    margin: 20px 0;
-                  }
-                  .download-btn {
-                    background: #007AFF;
-                    color: white;
-                    border: none;
-                    padding: 15px 30px;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    cursor: pointer;
-                    margin: 10px;
-                    text-decoration: none;
-                    display: inline-block;
-                  }
-                  .info {
-                    color: #666;
-                    font-size: 14px;
-                    margin: 10px 0;
-                  }
-                </style>
-              </head>
-              <body>
-                <div class="container">
-                  <h2>解析動画</h2>
-                  <video controls>
-                    <source src="${url}" type="video/mp4">
-                    お使いのブラウザは動画再生をサポートしていません。
-                  </video>
-                  <div class="info">
-                    ファイル名: ${filename}<br>
-                    サイズ: ${(mp4Blob.size / 1024 / 1024).toFixed(2)}MB
-                  </div>
-                  <a href="${url}" download="${filename}" class="download-btn">
-                    動画をダウンロード
-                  </a>
-                  <div class="info">
-                    ※ ダウンロードがうまくいかない場合は、動画を長押しして「動画を保存」を選択してください。
-                  </div>
-                </div>
-              </body>
-            </html>
-          `);
-          newWindow.document.close();
-        } else {
-          // ポップアップがブロックされた場合のフォールバック
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = filename;
-          link.textContent = 'ダウンロード';
-          alert('新しいタブを開けませんでした。ダウンロードリンクをクリックしてください: ' + filename);
-          document.body.appendChild(link);
-          setTimeout(() => document.body.removeChild(link), 5000);
+        // モバイルデバイスの場合：直接ダウンロードを試行
+        console.log('📱 モバイルデバイス検出: 直接ダウンロードを実行');
+        
+        // まず標準的なダウンロードを試行
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        
+        try {
+          a.click();
+          document.body.removeChild(a);
+          
+          // ダウンロードが成功した可能性を示すメッセージ
+          alert('動画のダウンロードを開始しました。ダウンロードフォルダをご確認ください。');
+          
+          // モバイルでは少し長めにURL保持
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+          }, 5000);
+          
+        } catch (error) {
+          // 直接ダウンロードが失敗した場合は軽量なビューアーを開く
+          console.log('直接ダウンロード失敗、軽量ビューアーを開きます');
+          document.body.removeChild(a);
+          
+          // 軽量なビューアーページを作成（HTMLを最小限に）
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(`<!DOCTYPE html>
+<html><head>
+<title>動画ダウンロード</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0;text-align:center;font-family:system-ui}video{max-width:100%;height:auto}a{display:inline-block;background:#007AFF;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;margin:10px}</style>
+</head><body>
+<h2>解析動画</h2>
+<video controls><source src="${url}" type="video/mp4"></video>
+<p>ファイル名: ${filename}<br>サイズ: ${(mp4Blob.size / 1024 / 1024).toFixed(2)}MB</p>
+<a href="${url}" download="${filename}">動画をダウンロード</a>
+<p>※ ダウンロードがうまくいかない場合は、動画を長押しして「動画を保存」を選択してください。</p>
+</body></html>`);
+            newWindow.document.close();
+          } else {
+            // ポップアップがブロックされた場合のフォールバック
+            alert('新しいタブを開けませんでした。ダウンロードリンクを表示します。');
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.textContent = `${filename} をダウンロード`;
+            link.style.display = 'block';
+            link.style.margin = '10px';
+            document.body.appendChild(link);
+            setTimeout(() => document.body.removeChild(link), 10000);
+          }
         }
       } else {
         // デスクトップの場合：従来の方法
@@ -812,50 +786,63 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       console.log('📁 ダウンロードファイル名:', filename);
       
       if (isMobile) {
-        // モバイルの場合：MP4形式として保存
+        // モバイルの場合：直接ダウンロードを試行
+        console.log('📱 モバイルデバイス検出: 直接ダウンロードを実行');
+        
         const adjustedBlob = extension === 'mp4' 
           ? new Blob([recordedVideoBlob], { type: 'video/mp4' })
           : recordedVideoBlob;
         
         const url = URL.createObjectURL(adjustedBlob);
         
-        const newWindow = window.open();
-        if (newWindow) {
-          newWindow.document.write(`
-            <html>
-              <head>
-                <title>解析動画ダウンロード</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                  body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #f5f5f5; text-align: center; }
-                  .container { max-width: 400px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-                  video { width: 100%; height: auto; border-radius: 8px; margin: 20px 0; }
-                  .download-btn { background: #007AFF; color: white; border: none; padding: 15px 30px; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px; text-decoration: none; display: inline-block; }
-                  .info { color: #666; font-size: 14px; margin: 10px 0; }
-                </style>
-              </head>
-              <body>
-                <div class="container">
-                  <h2>解析動画 (${extension.toUpperCase()}形式)</h2>
-                  <video controls>
-                    <source src="${url}" type="video/${extension}">
-                    お使いのブラウザは動画再生をサポートしていません。
-                  </video>
-                  <div class="info">
-                    ファイル名: ${filename}<br>
-                    サイズ: ${(adjustedBlob.size / 1024 / 1024).toFixed(2)}MB
-                  </div>
-                  <a href="${url}" download="${filename}" class="download-btn">
-                    動画をダウンロード
-                  </a>
-                  <div class="info">
-                    ※ ダウンロードがうまくいかない場合は、動画を長押しして「動画を保存」を選択してください。
-                  </div>
-                </div>
-              </body>
-            </html>
-          `);
-          newWindow.document.close();
+        // まず標準的なダウンロードを試行
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        
+        try {
+          a.click();
+          document.body.removeChild(a);
+          alert('動画のダウンロードを開始しました。ダウンロードフォルダをご確認ください。');
+          
+          // モバイルでは少し長めにURL保持
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+          }, 5000);
+          
+        } catch (error) {
+          // 直接ダウンロードが失敗した場合は軽量なビューアーを開く
+          console.log('直接ダウンロード失敗、軽量ビューアーを開きます');
+          document.body.removeChild(a);
+          
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(`<!DOCTYPE html>
+<html><head>
+<title>動画ダウンロード (${extension.toUpperCase()})</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0;text-align:center;font-family:system-ui}video{max-width:100%;height:auto}a{display:inline-block;background:#007AFF;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;margin:10px}</style>
+</head><body>
+<h2>解析動画 (${extension.toUpperCase()})</h2>
+<video controls><source src="${url}" type="video/${extension}"></video>
+<p>ファイル名: ${filename}<br>サイズ: ${(adjustedBlob.size / 1024 / 1024).toFixed(2)}MB</p>
+<a href="${url}" download="${filename}">動画をダウンロード</a>
+<p>※ ダウンロードがうまくいかない場合は、動画を長押しして「動画を保存」を選択してください。</p>
+</body></html>`);
+            newWindow.document.close();
+          } else {
+            alert('新しいタブを開けませんでした。ダウンロードリンクを表示します。');
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.textContent = `${filename} をダウンロード`;
+            link.style.display = 'block';
+            link.style.margin = '10px';
+            document.body.appendChild(link);
+            setTimeout(() => document.body.removeChild(link), 10000);
+          }
         }
       } else {
         // デスクトップの場合：従来の方法
