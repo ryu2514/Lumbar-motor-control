@@ -38,7 +38,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           unit: "点",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "80-100点（優秀な制御）"
+          normalRange: "70-100点（良好な制御）"
         },
         {
           label: "腰椎過剰運動量",
@@ -46,7 +46,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           unit: "°",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "0-5°（良好な制御）"
+          normalRange: "0-10°（良好な制御）"
         }
       );
       
@@ -322,7 +322,7 @@ function addLumbarFlexionExtensionMetric(
       unit: "点",
       status: stabilityStatus,
       description: stabilityDescription,
-      normalRange: "80-100点（優秀な制御）"
+      normalRange: "70-100点（良好な制御）"
     });
     
     // 2. 腰椎過剰運動量（現在の角度の絶対値）
