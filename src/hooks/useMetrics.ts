@@ -46,7 +46,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           unit: "°",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "0-15°（適切な制御）"
+          normalRange: "0-10°（適切な制御）"
         }
       );
       
@@ -185,16 +185,16 @@ function calculateOverallScore(metrics: Metric[]): Metric {
       // 既に100点満点
       normalizedScore = metric.value;
     } else if (metric.label === "腰椎過剰運動量") {
-      // ロックバック動作では腰椎の適度な動きは正常
-      // 0-8°が100点、8-15°で段階的減点、15-25°で更に減点
-      if (metric.value <= 8) {
+      // ロックバック動作では調整された過剰運動量を評価
+      // 0-10°が100点、10-20°で段階的減点、20-30°で更に減点
+      if (metric.value <= 10) {
         normalizedScore = 100;
-      } else if (metric.value <= 15) {
-        normalizedScore = 100 - ((metric.value - 8) * 6); // 8°超えで6点ずつ減点
-      } else if (metric.value <= 25) {
-        normalizedScore = Math.max(0, 58 - ((metric.value - 15) * 3)); // 15°超えで3点ずつ減点
+      } else if (metric.value <= 20) {
+        normalizedScore = 100 - ((metric.value - 10) * 5); // 10°超えで5点ずつ減点
+      } else if (metric.value <= 30) {
+        normalizedScore = Math.max(0, 50 - ((metric.value - 20) * 3)); // 20°超えで3点ずつ減点
       } else {
-        normalizedScore = Math.max(0, 28 - ((metric.value - 25) * 1)); // 25°超えで1点ずつ減点
+        normalizedScore = Math.max(0, 20 - ((metric.value - 30) * 1)); // 30°超えで1点ずつ減点
       }
     } else if (metric.label === "腰椎屈曲・伸展角度") {
       // -15°〜+15°の範囲で100点、それを超えると減点
@@ -329,46 +329,51 @@ function addLumbarFlexionExtensionMetric(
       normalRange: "70-100点（良好な制御）"
     });
     
-    // 2. 腰椎過剰運動量（ロックバック動作に適した評価）
-    const excessiveMovement = Math.abs(lumbarAngle);
+    // 2. 腰椎過剰運動量（ロックバック動作の実際の評価）
+    // ロックバック動作では中立位からの偏差を評価
+    const neutralOffset = 5; // ロックバック動作での自然な中立位オフセット
+    const adjustedMovement = Math.max(0, Math.abs(lumbarAngle) - neutralOffset);
+    
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
-      excessiveMovement < 15 ? 'normal' :
-      excessiveMovement < 25 ? 'caution' : 'abnormal';
+      adjustedMovement < 10 ? 'normal' :
+      adjustedMovement < 20 ? 'caution' : 'abnormal';
     
     const excessiveDescription = 
-      excessiveMovement < 15 ? '適切な腰椎制御' :
-      excessiveMovement < 25 ? '軽度の過剰運動' : '顕著な過剰運動';
+      adjustedMovement < 10 ? 'ロックバック動作での適切な制御' :
+      adjustedMovement < 20 ? '軽度の過剰運動' : '顕著な過剰運動';
     
     metrics.push({
       label: "腰椎過剰運動量",
-      value: Number(excessiveMovement.toFixed(1)),
+      value: Number(adjustedMovement.toFixed(1)),
       unit: "°",
       status: excessiveStatus,
       description: excessiveDescription,
-      normalRange: "0-15°（適切な制御）"
+      normalRange: "0-10°（適切な制御）"
     });
     
-    // 3. 腰椎屈曲・伸展角度
+    // 3. 腰椎屈曲・伸展角度（ロックバック動作補正）
+    // ロックバック動作では軽度の前傾が正常
+    const correctedAngle = lumbarAngle - 5; // 5°のオフセット補正
     let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    let angleDescription = '腰椎の前後屈角度';
+    let angleDescription = 'ロックバック動作での腰椎角度';
     
-    if (Math.abs(lumbarAngle) > 30) {
+    if (Math.abs(correctedAngle) > 25) {
       angleStatus = 'abnormal';
-      angleDescription = lumbarAngle > 0 ? '過度な腰椎屈曲（前屈）' : '過度な腰椎伸展（後屈）';
-    } else if (Math.abs(lumbarAngle) > 15) {
+      angleDescription = correctedAngle > 0 ? 'ロックバック時の過度な前屈' : 'ロックバック時の過度な後屈';
+    } else if (Math.abs(correctedAngle) > 15) {
       angleStatus = 'caution';
-      angleDescription = lumbarAngle > 0 ? '軽度の腰椎屈曲' : '軽度の腰椎伸展';
+      angleDescription = correctedAngle > 0 ? 'ロックバック時の軽度前屈' : 'ロックバック時の軽度後屈';
     } else {
-      angleDescription = '良好な腰椎アライメント';
+      angleDescription = 'ロックバック動作での良好なアライメント';
     }
     
     metrics.push({
       label: "腰椎屈曲・伸展角度",
-      value: Number(lumbarAngle.toFixed(1)),
+      value: Number(correctedAngle.toFixed(1)),
       unit: "°",
       status: angleStatus,
       description: angleDescription,
-      normalRange: "-15° 〜 +15°（中立位）"
+      normalRange: "-15° 〜 +15°（ロックバック補正済み）"
     });
   }
 }
