@@ -291,30 +291,33 @@ function addLumbarFlexionExtensionMetric(
     // 腰椎角度を計算
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
     
-    // 1. 腰椎安定性スコア（より現実的な評価）
+    // 1. 腰椎安定性スコア（ロックバック動作に適した評価）
     const lumbarDeviation = Math.abs(lumbarAngle);
     let lumbarStabilityScore = 0;
     
-    if (lumbarDeviation <= 10) {
-      lumbarStabilityScore = 100 - (lumbarDeviation * 2); // 10°まで2点ずつ減点
-    } else if (lumbarDeviation <= 20) {
-      lumbarStabilityScore = Math.max(0, 80 - ((lumbarDeviation - 10) * 4)); // 10°超えで4点ずつ減点
+    // ロックバック動作では腰椎の適度な動きは正常
+    if (lumbarDeviation <= 15) {
+      lumbarStabilityScore = 100 - (lumbarDeviation * 1); // 15°まで1点ずつ減点
+    } else if (lumbarDeviation <= 25) {
+      lumbarStabilityScore = Math.max(0, 85 - ((lumbarDeviation - 15) * 3)); // 15°超えで3点ずつ減点
+    } else if (lumbarDeviation <= 35) {
+      lumbarStabilityScore = Math.max(0, 55 - ((lumbarDeviation - 25) * 2)); // 25°超えで2点ずつ減点
     } else {
-      lumbarStabilityScore = Math.max(0, 40 - ((lumbarDeviation - 20) * 2)); // 20°超えで2点ずつ減点
+      lumbarStabilityScore = Math.max(0, 35 - ((lumbarDeviation - 35) * 1)); // 35°超えで1点ずつ減点
     }
     
     let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let stabilityDescription = 'リアルタイム腰椎安定性';
     
-    if (lumbarStabilityScore >= 70) {
+    if (lumbarStabilityScore >= 75) {
       stabilityStatus = 'normal';
-      stabilityDescription = '良好な腰椎制御';
-    } else if (lumbarStabilityScore >= 50) {
+      stabilityDescription = 'ロックバック動作での良好な腰椎制御';
+    } else if (lumbarStabilityScore >= 60) {
       stabilityStatus = 'caution';
-      stabilityDescription = '軽度の腰椎不安定性';
+      stabilityDescription = '軽度の腰椎制御低下';
     } else {
       stabilityStatus = 'abnormal';
-      stabilityDescription = '腰椎制御不良';
+      stabilityDescription = '腰椎制御に問題';
     }
     
     metrics.push({
