@@ -290,15 +290,25 @@ function addLumbarFlexionExtensionMetric(
     // 腰椎角度を計算
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
     
-    // 1. 腰椎安定性スコア（シンプルな評価）
-    const lumbarStabilityScore = Math.max(0, 100 - Math.abs(lumbarAngle) * 3);
+    // 1. 腰椎安定性スコア（より現実的な評価）
+    const excessiveMovement = Math.abs(lumbarAngle);
+    let lumbarStabilityScore = 0;
+    
+    if (excessiveMovement <= 10) {
+      lumbarStabilityScore = 100 - (excessiveMovement * 2); // 10°まで2点ずつ減点
+    } else if (excessiveMovement <= 20) {
+      lumbarStabilityScore = Math.max(0, 80 - ((excessiveMovement - 10) * 4)); // 10°超えで4点ずつ減点
+    } else {
+      lumbarStabilityScore = Math.max(0, 40 - ((excessiveMovement - 20) * 2)); // 20°超えで2点ずつ減点
+    }
+    
     let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let stabilityDescription = 'リアルタイム腰椎安定性';
     
-    if (lumbarStabilityScore >= 80) {
+    if (lumbarStabilityScore >= 70) {
       stabilityStatus = 'normal';
-      stabilityDescription = '優秀な腰椎制御';
-    } else if (lumbarStabilityScore >= 60) {
+      stabilityDescription = '良好な腰椎制御';
+    } else if (lumbarStabilityScore >= 50) {
       stabilityStatus = 'caution';
       stabilityDescription = '軽度の腰椎不安定性';
     } else {
@@ -318,12 +328,12 @@ function addLumbarFlexionExtensionMetric(
     // 2. 腰椎過剰運動量（現在の角度の絶対値）
     const excessiveMovement = Math.abs(lumbarAngle);
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
-      excessiveMovement < 5 ? 'normal' :
-      excessiveMovement < 10 ? 'caution' : 'abnormal';
+      excessiveMovement < 10 ? 'normal' :
+      excessiveMovement < 20 ? 'caution' : 'abnormal';
     
     const excessiveDescription = 
-      excessiveMovement < 5 ? '最小限の過剰運動' :
-      excessiveMovement < 10 ? '軽度の過剰運動' : '顕著な過剰運動';
+      excessiveMovement < 10 ? '良好な腰椎制御' :
+      excessiveMovement < 20 ? '軽度の過剰運動' : '顕著な過剰運動';
     
     metrics.push({
       label: "腰椎過剰運動量",
@@ -331,7 +341,7 @@ function addLumbarFlexionExtensionMetric(
       unit: "°",
       status: excessiveStatus,
       description: excessiveDescription,
-      normalRange: "0-5°（良好な制御）"
+      normalRange: "0-10°（良好な制御）"
     });
     
     // 3. 腰椎屈曲・伸展角度
