@@ -46,7 +46,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           unit: "°",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "0-10°（適切な制御）"
+          normalRange: "0-10°（良好な制御）"
         }
       );
       
@@ -311,7 +311,7 @@ function addLumbarFlexionExtensionMetric(
     
     if (lumbarStabilityScore >= 75) {
       stabilityStatus = 'normal';
-      stabilityDescription = 'ロックバック動作での良好な腰椎制御';
+      stabilityDescription = '良好な腰椎制御';
     } else if (lumbarStabilityScore >= 60) {
       stabilityStatus = 'caution';
       stabilityDescription = '軽度の腰椎制御低下';
@@ -339,7 +339,7 @@ function addLumbarFlexionExtensionMetric(
       adjustedMovement < 20 ? 'caution' : 'abnormal';
     
     const excessiveDescription = 
-      adjustedMovement < 10 ? 'ロックバック動作での適切な制御' :
+      adjustedMovement < 10 ? '適切な腰椎制御' :
       adjustedMovement < 20 ? '軽度の過剰運動' : '顕著な過剰運動';
     
     metrics.push({
@@ -355,16 +355,16 @@ function addLumbarFlexionExtensionMetric(
     // ロックバック動作では軽度の前傾が正常
     const correctedAngle = lumbarAngle - 5; // 5°のオフセット補正
     let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    let angleDescription = 'ロックバック動作での腰椎角度';
+    let angleDescription = '腰椎の前後屈角度';
     
     if (Math.abs(correctedAngle) > 25) {
       angleStatus = 'abnormal';
-      angleDescription = correctedAngle > 0 ? 'ロックバック時の過度な前屈' : 'ロックバック時の過度な後屈';
+      angleDescription = correctedAngle > 0 ? '過度な腰椎屈曲（前屈）' : '過度な腰椎伸展（後屈）';
     } else if (Math.abs(correctedAngle) > 15) {
       angleStatus = 'caution';
-      angleDescription = correctedAngle > 0 ? 'ロックバック時の軽度前屈' : 'ロックバック時の軽度後屈';
+      angleDescription = correctedAngle > 0 ? '軽度の腰椎屈曲' : '軽度の腰椎伸展';
     } else {
-      angleDescription = 'ロックバック動作での良好なアライメント';
+      angleDescription = '良好な腰椎アライメント';
     }
     
     metrics.push({
@@ -373,7 +373,7 @@ function addLumbarFlexionExtensionMetric(
       unit: "°",
       status: angleStatus,
       description: angleDescription,
-      normalRange: "-15° 〜 +15°（ロックバック補正済み）"
+      normalRange: "-15° 〜 +15°（中立位）"
     });
   }
 }
