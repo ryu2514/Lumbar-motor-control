@@ -46,7 +46,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           unit: "°",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "0-10°（良好な制御）"
+          normalRange: "0-15°（適切な制御）"
         }
       );
       
@@ -185,15 +185,16 @@ function calculateOverallScore(metrics: Metric[]): Metric {
       // 既に100点満点
       normalizedScore = metric.value;
     } else if (metric.label === "腰椎過剰運動量") {
-      // 0-5°が100点、5-10°で段階的減点、10-20°で更に減点
-      if (metric.value <= 5) {
+      // ロックバック動作では腰椎の適度な動きは正常
+      // 0-8°が100点、8-15°で段階的減点、15-25°で更に減点
+      if (metric.value <= 8) {
         normalizedScore = 100;
-      } else if (metric.value <= 10) {
-        normalizedScore = 100 - ((metric.value - 5) * 10); // 5°超えで10点ずつ減点
-      } else if (metric.value <= 20) {
-        normalizedScore = Math.max(0, 50 - ((metric.value - 10) * 3)); // 10°超えで3点ずつ減点
+      } else if (metric.value <= 15) {
+        normalizedScore = 100 - ((metric.value - 8) * 6); // 8°超えで6点ずつ減点
+      } else if (metric.value <= 25) {
+        normalizedScore = Math.max(0, 58 - ((metric.value - 15) * 3)); // 15°超えで3点ずつ減点
       } else {
-        normalizedScore = Math.max(0, 20 - ((metric.value - 20) * 1)); // 20°超えで1点ずつ減点
+        normalizedScore = Math.max(0, 28 - ((metric.value - 25) * 1)); // 25°超えで1点ずつ減点
       }
     } else if (metric.label === "腰椎屈曲・伸展角度") {
       // -15°〜+15°の範囲で100点、それを超えると減点
@@ -325,15 +326,15 @@ function addLumbarFlexionExtensionMetric(
       normalRange: "70-100点（良好な制御）"
     });
     
-    // 2. 腰椎過剰運動量（現在の角度の絶対値）
+    // 2. 腰椎過剰運動量（ロックバック動作に適した評価）
     const excessiveMovement = Math.abs(lumbarAngle);
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
-      excessiveMovement < 10 ? 'normal' :
-      excessiveMovement < 20 ? 'caution' : 'abnormal';
+      excessiveMovement < 15 ? 'normal' :
+      excessiveMovement < 25 ? 'caution' : 'abnormal';
     
     const excessiveDescription = 
-      excessiveMovement < 10 ? '良好な腰椎制御' :
-      excessiveMovement < 20 ? '軽度の過剰運動' : '顕著な過剰運動';
+      excessiveMovement < 15 ? '適切な腰椎制御' :
+      excessiveMovement < 25 ? '軽度の過剰運動' : '顕著な過剰運動';
     
     metrics.push({
       label: "腰椎過剰運動量",
@@ -341,7 +342,7 @@ function addLumbarFlexionExtensionMetric(
       unit: "°",
       status: excessiveStatus,
       description: excessiveDescription,
-      normalRange: "0-10°（良好な制御）"
+      normalRange: "0-15°（適切な制御）"
     });
     
     // 3. 腰椎屈曲・伸展角度
