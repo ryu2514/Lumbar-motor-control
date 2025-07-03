@@ -291,15 +291,15 @@ function addLumbarFlexionExtensionMetric(
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
     
     // 1. 腰椎安定性スコア（より現実的な評価）
-    const excessiveMovement = Math.abs(lumbarAngle);
+    const lumbarDeviation = Math.abs(lumbarAngle);
     let lumbarStabilityScore = 0;
     
-    if (excessiveMovement <= 10) {
-      lumbarStabilityScore = 100 - (excessiveMovement * 2); // 10°まで2点ずつ減点
-    } else if (excessiveMovement <= 20) {
-      lumbarStabilityScore = Math.max(0, 80 - ((excessiveMovement - 10) * 4)); // 10°超えで4点ずつ減点
+    if (lumbarDeviation <= 10) {
+      lumbarStabilityScore = 100 - (lumbarDeviation * 2); // 10°まで2点ずつ減点
+    } else if (lumbarDeviation <= 20) {
+      lumbarStabilityScore = Math.max(0, 80 - ((lumbarDeviation - 10) * 4)); // 10°超えで4点ずつ減点
     } else {
-      lumbarStabilityScore = Math.max(0, 40 - ((excessiveMovement - 20) * 2)); // 20°超えで2点ずつ減点
+      lumbarStabilityScore = Math.max(0, 40 - ((lumbarDeviation - 20) * 2)); // 20°超えで2点ずつ減点
     }
     
     let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
