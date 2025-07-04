@@ -1275,7 +1275,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             {/* 動画表示エリア */}
             <div className={`grid gap-4 mb-4 ${showComparison && userUploadedVideo ? 'grid-cols-1' : 'grid-cols-1'}`}>
               {/* メイン動画（アップロード動画または選択された動画） */}
-              <div className="relative aspect-video bg-black rounded overflow-hidden">
+              <div className="relative aspect-video lg:aspect-video bg-black rounded overflow-hidden">
                 <div className="absolute top-2 left-2 z-20 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm">
                   {useUploadedVideo ? 'アップロード動画' : 'デモ動画'}
                 </div>
@@ -1474,7 +1474,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               
               {/* デモ動画（比較表示時） */}
               {showComparison && userUploadedVideo && (
-                <div className="relative aspect-video bg-black rounded overflow-hidden">
+                <div className="relative aspect-video lg:aspect-video bg-black rounded overflow-hidden">
                   <div className="absolute top-2 left-2 z-20 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-sm">
                     参考デモ動画
                     {isDemoVideoLoaded ? ' ✓' : ' ⏳'}
@@ -1607,7 +1607,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             </div>
             
             {/* 動画コントロールエリア */}
-            <div className="space-y-3 mb-4">
+            <div className="space-y-3 mb-6">
               {/* 1行目: 再生ボタンとアップロードボタン */}
               <div className="grid grid-cols-2 gap-3">
                 {/* 再生/一時停止ボタン */}
@@ -1728,23 +1728,23 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               />
             </div>
             
-          </div>
-          
-          {/* スマホ表示: 動画の下に評価結果を配置 */}
-          <div className="lg:hidden bg-white rounded-lg shadow-md p-4">
-            <h2 className="text-lg font-semibold mb-4">評価結果</h2>
+            {/* スマホ表示: 動画の下に評価結果を配置 */}
+            <div className="lg:hidden mt-6">
+              <h2 className="text-lg font-semibold mb-4">評価結果</h2>
+              
+              {/* 評価指標の表示 */}
+              {isVideoLoaded ? (
+                <MetricsDisplay metrics={metrics} />
+              ) : (
+                <div className="text-center text-gray-500">
+                  <p className="mb-2">動画を再生すると評価結果が表示されます</p>
+                  {!isModelLoaded && (
+                    <p className="text-sm">姿勢検出モデル読み込み中...</p>
+                  )}
+                </div>
+              )}
+            </div>
             
-            {/* 評価指標の表示 */}
-            {isVideoLoaded ? (
-              <MetricsDisplay metrics={metrics} />
-            ) : (
-              <div className="text-center text-gray-500">
-                <p className="mb-2">動画を再生すると評価結果が表示されます</p>
-                {!isModelLoaded && (
-                  <p className="text-sm">姿勢検出モデル読み込み中...</p>
-                )}
-              </div>
-            )}
           </div>
         </div>
         
