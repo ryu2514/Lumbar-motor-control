@@ -545,13 +545,10 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       stopRecording();
     }
     
-    if (useUploadedVideo && userUploadedVideo) {
-      // アップロード動画を優先的に表示
-      setVideoUrl(userUploadedVideo);
-    } else {
-      // 非アップロード時はテスト種類に応じたデモ動画を表示
-      setVideoUrl(DEMO_VIDEOS[testType]);
-    }
+    // テスト種類が変更されたときは常にデモ動画に切り替え
+    setUseUploadedVideo(false);
+    setShowComparison(false);
+    setVideoUrl(DEMO_VIDEOS[testType]);
     
     // 動画切り替え時の状態リセット
     setIsVideoLoaded(false);
@@ -569,7 +566,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     resetAngleFilter();
     
     // ログ出力
-    console.log('テスト種類変更:', testType, useUploadedVideo ? 'アップロード動画表示' : 'デモ動画表示');
+    console.log('テスト種類変更:', testType, 'デモ動画に切り替え');
     
     // 動画を停止
     if (videoRef.current) {
@@ -581,7 +578,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       demoVideoRef.current.pause();
       demoVideoRef.current.currentTime = 0;
     }
-  }, [testType, useUploadedVideo, userUploadedVideo]);
+  }, [testType]);
 
   // 初期化は状態の初期値で既に設定済みなので、このuseEffectは削除
 
