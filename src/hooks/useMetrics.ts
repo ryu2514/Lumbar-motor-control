@@ -312,9 +312,9 @@ function addLumbarFlexionExtensionMetric(
       normalRange: "70-100点（良好な制御）"
     });
     
-    // 2. 腰椎過剰運動量（ロックバック動作の実際の評価）
-    // ロックバック動作では中立位からの偏差を評価
-    const neutralOffset = 8; // ロックバック動作での自然な中立位オフセット
+    // 2. 腰椎過剰運動量（安定性評価）
+    // 中立位からの偏差を評価
+    const neutralOffset = 8; // 自然な中立位オフセット
     const adjustedMovement = Math.max(0, Math.abs(lumbarAngle) - neutralOffset);
     
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
@@ -334,8 +334,8 @@ function addLumbarFlexionExtensionMetric(
       normalRange: "0-10°（適切な制御）"
     });
     
-    // 3. 腰椎屈曲・伸展角度（ロックバック動作補正）
-    // ロックバック動作では軽度の前傾が正常
+    // 3. 腰椎屈曲・伸展角度（可動域評価）
+    // 軽度の前傾が正常
     const correctedAngle = lumbarAngle - 5; // 5°のオフセット補正
     let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let angleDescription = '腰椎の前後屈角度（可動域評価）';
