@@ -77,9 +77,9 @@ export const calculateLumbarFlexionExtension = (
   
   // これで前屈時に正の角度、後屈時に負の角度になるはず
   
-  // ノイズフィルタリング
-  if (Math.abs(lumbarAngle) < 3) {
-    lumbarAngle = 0; // 小さな動きは中立とする
+  // ノイズフィルタリング（座位膝伸展テストでは感度を上げる）
+  if (Math.abs(lumbarAngle) < 1) {
+    lumbarAngle = 0; // 非常に小さな動きのみ中立とする
   }
   
   // 現実的な腰椎可動域にスケーリング
@@ -153,7 +153,7 @@ export const calculateFilteredLumbarAngle = (
   const filteredAngle = angleFilter.filter(rawAngle);
   
   // デバッグ用ログ（開発時のみ）
-  if (Math.random() < 0.02) { // 2%の確率でログ出力（通常運用）
+  if (Math.random() < 0.1) { // 10%の確率でログ出力（デバッグ用）
     // 体幹ベクトルも表示
     const torsoVector = {
       x: shoulderMid.x - hipMid.x,

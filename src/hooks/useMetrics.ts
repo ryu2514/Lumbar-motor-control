@@ -380,16 +380,26 @@ function addSeatedLumbarControlMetric(
     // 座位腰椎制御スコア（総合的な評価）
     const excessiveMovement = Math.abs(lumbarAngle);
     
-    // より現実的な評価基準
+    // デバッグログ（座位膝伸展テスト）
+    console.log('🦵 座位膝伸展テスト - 腰椎角度:', {
+      生角度: lumbarAngle.toFixed(2) + '°',
+      絶対値: excessiveMovement.toFixed(2) + '°',
+      肩座標: shoulderMid,
+      腰座標: hipMid
+    });
+    
+    // より厳密な評価基準（座位膝伸展テスト用）
     let controlScore = 0;
-    if (excessiveMovement <= 5) {
-      controlScore = 100; // 優秀
+    if (excessiveMovement <= 1) {
+      controlScore = 100; // 完璧な制御
+    } else if (excessiveMovement <= 3) {
+      controlScore = 100 - ((excessiveMovement - 1) * 10); // 1°超えで10点ずつ減点
+    } else if (excessiveMovement <= 5) {
+      controlScore = 80 - ((excessiveMovement - 3) * 15); // 3°超えで15点ずつ減点
     } else if (excessiveMovement <= 10) {
-      controlScore = 100 - ((excessiveMovement - 5) * 8); // 5°超えで8点ずつ減点
-    } else if (excessiveMovement <= 20) {
-      controlScore = Math.max(0, 60 - ((excessiveMovement - 10) * 4)); // 10°超えで4点ずつ減点
+      controlScore = Math.max(0, 50 - ((excessiveMovement - 5) * 8)); // 5°超えで8点ずつ減点
     } else {
-      controlScore = Math.max(0, 20 - ((excessiveMovement - 20) * 2)); // 20°超えで2点ずつ減点
+      controlScore = Math.max(0, 10 - ((excessiveMovement - 10) * 1)); // 10°超えで1点ずつ減点
     }
     
     let status: 'normal' | 'caution' | 'abnormal' = 'normal';
