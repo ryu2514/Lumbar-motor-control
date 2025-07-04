@@ -572,6 +572,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0; // 動画を最初に戻す
+      
+      // デモ動画の読み込みを強制的に再開始（より積極的な初期化）
+      setTimeout(() => {
+        if (videoRef.current && !useUploadedVideo) {
+          console.log('🔄 デモ動画の強制リロード');
+          // preload を auto に設定してから load
+          videoRef.current.preload = 'auto';
+          videoRef.current.load();
+        }
+      }, 100);
     }
     
     if (demoVideoRef.current) {
@@ -656,15 +666,33 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           isUploadedVideo: useUploadedVideo
         });
         
-        // アップロード動画の場合のみ再チェック
-        if (useUploadedVideo) {
-          setTimeout(() => {
-            if (videoRef.current && videoRef.current.readyState >= 1) {
+        // 動画の再チェック（アップロード動画とデモ動画両方）
+        setTimeout(() => {
+          if (videoRef.current) {
+            const video = videoRef.current;
+            // デモ動画の場合は少し緩い条件で再チェック
+            const isReadyOnRetry = useUploadedVideo 
+              ? video.readyState >= 1
+              : video.readyState >= 1 && (video.videoWidth > 0 || video.duration > 0);
+            
+            if (isReadyOnRetry) {
               setIsVideoLoaded(true);
-              console.log('✅ アップロード動画読み込み完了（再チェック）');
+              console.log('✅ 動画読み込み完了（再チェック）', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
+            } else if (!useUploadedVideo) {
+              // デモ動画の場合、さらに緩い条件で最終チェック
+              console.log('🔄 デモ動画最終チェック試行');
+              setTimeout(() => {
+                if (videoRef.current && !isVideoLoaded) {
+                  const video = videoRef.current;
+                  if (video.readyState >= 1) {
+                    setIsVideoLoaded(true);
+                    console.log('✅ デモ動画読み込み完了（最終チェック）');
+                  }
+                }
+              }, 2000);
             }
-          }, 1000);
-        }
+          }
+        }, 1000);
       }
     }
   }, [loadingTimeout, useUploadedVideo]);
@@ -1285,7 +1313,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   controlsList="nodownload nofullscreen noremoteplayback"
                   webkit-playsinline="true"
                   x5-playsinline="true"
-                  preload="metadata"
+                  preload={useUploadedVideo ? "metadata" : "auto"}
                   style={{ pointerEvents: 'none' }}
                   onLoadStart={() => {
                     console.log('Video load start event');
@@ -1352,6 +1380,18 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                           clearTimeout(loadingTimeout);
                           setLoadingTimeout(null);
                         }
+                        
+                        console.log('✅ Video can play through - 完全読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
+                        
+                        // デモ動画の場合、readyState が低い場合は再試行
+                        if (!useUploadedVideo && video.readyState < 3) {
+                          console.log('🔄 デモ動画のreadyState低い、再試行');
+                          setTimeout(() => {
+                            if (videoRef.current && !isVideoLoaded) {
+                              videoRef.current.load();
+                            }
+                          }, 500);
+                        }
                       }
                     }
                   }}
@@ -1415,13 +1455,23 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                         console.log(`動画読み込み再試行中... (${videoRetryCount + 1}/3)`);
                         setVideoRetryCount(prev => prev + 1);
                         
-                        // 1秒後に再試行
+                        // デモ動画の場合は少し長めの間隔で再試行
+                        const retryDelay = useUploadedVideo ? 1000 : 2000;
                         setTimeout(() => {
                           video.load();
-                        }, 1000);
+                        }, retryDelay);
                       } else {
                         setIsVideoLoaded(false);
                         console.error('❌ 動画読み込み失敗: 最大再試行回数に達しました');
+                        
+                        // デモ動画の場合、最終的に preload="auto" で再試行
+                        if (!useUploadedVideo) {
+                          console.log('🔄 デモ動画最終再試行（preload強制）');
+                          video.preload = 'auto';
+                          setTimeout(() => {
+                            video.load();
+                          }, 3000);
+                        }
                       }
                     }
                   }}
