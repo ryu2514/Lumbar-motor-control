@@ -388,20 +388,20 @@ function addSeatedLumbarControlMetric(
       腰座標: hipMid
     });
     
-    // 座位膝伸展テスト用の厳しめ評価基準（7°以上で大幅減点）
+    // 座位膝伸展テスト用の厳しめ評価基準（7°以上で非常に厳しく減点）
     let controlScore = 0;
     if (excessiveMovement <= 2) {
       controlScore = 100; // 優秀な制御（範囲を狭める）
     } else if (excessiveMovement <= 3.5) {
       controlScore = 100 - ((excessiveMovement - 2) * 6); // 2°超えで6点ずつ減点
-    } else if (excessiveMovement <= 6) {
+    } else if (excessiveMovement <= 7) {
       controlScore = 91 - ((excessiveMovement - 3.5) * 8); // 3.5°超えで8点ずつ減点
     } else if (excessiveMovement <= 9) {
-      controlScore = Math.max(0, 71 - ((excessiveMovement - 6) * 12)); // 6°超えで12点ずつ減点（厳しく）
+      controlScore = Math.max(0, 63 - ((excessiveMovement - 7) * 18)); // 7°超えで18点ずつ減点（非常に厳しく）
     } else if (excessiveMovement <= 11) {
-      controlScore = Math.max(0, 35 - ((excessiveMovement - 9) * 10)); // 9°超えで10点ずつ減点
+      controlScore = Math.max(0, 27 - ((excessiveMovement - 9) * 12)); // 9°超えで12点ずつ減点
     } else {
-      controlScore = Math.max(0, 15 - ((excessiveMovement - 11) * 5)); // 11°超えで5点ずつ減点
+      controlScore = Math.max(0, 3 - ((excessiveMovement - 11) * 3)); // 11°超えで3点ずつ減点
     }
     
     let status: 'normal' | 'caution' | 'abnormal' = 'normal';
