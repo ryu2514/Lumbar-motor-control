@@ -487,7 +487,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     setIsPlaying(false);
     setIsDemoVideoLoaded(false);
     setVideoRetryCount(0);
-    setShowComparison(true);
+    setShowComparison(false); // デフォルトでは比較表示をオフに
     
     // アップロード後デモ動画を初期化
     setTimeout(() => {
@@ -1613,7 +1613,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       }`}
                       onClick={toggleComparison}
                     >
-                      {showComparison ? '縦並び表示中' : '縦並び表示'}
+                      {showComparison ? 'デモ動画非表示' : 'デモ動画も表示'}
                     </button>
                   </>
                 )}
