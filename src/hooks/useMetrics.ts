@@ -388,29 +388,29 @@ function addSeatedLumbarControlMetric(
       腰座標: hipMid
     });
     
-    // 座位膝伸展テスト用の適度な評価基準（7°以上で厳しく減点）
+    // 座位膝伸展テスト用の厳しめ評価基準（7°以上で大幅減点）
     let controlScore = 0;
-    if (excessiveMovement <= 2.5) {
-      controlScore = 100; // 優秀な制御
-    } else if (excessiveMovement <= 4) {
-      controlScore = 100 - ((excessiveMovement - 2.5) * 4); // 2.5°超えで4点ずつ減点
-    } else if (excessiveMovement <= 7) {
-      controlScore = 94 - ((excessiveMovement - 4) * 6); // 4°超えで6点ずつ減点
-    } else if (excessiveMovement <= 10) {
-      controlScore = Math.max(0, 76 - ((excessiveMovement - 7) * 12)); // 7°超えで12点ずつ減点（厳しく）
-    } else if (excessiveMovement <= 12) {
-      controlScore = Math.max(0, 40 - ((excessiveMovement - 10) * 10)); // 10°超えで10点ずつ減点
+    if (excessiveMovement <= 2) {
+      controlScore = 100; // 優秀な制御（範囲を狭める）
+    } else if (excessiveMovement <= 3.5) {
+      controlScore = 100 - ((excessiveMovement - 2) * 6); // 2°超えで6点ずつ減点
+    } else if (excessiveMovement <= 6) {
+      controlScore = 91 - ((excessiveMovement - 3.5) * 8); // 3.5°超えで8点ずつ減点
+    } else if (excessiveMovement <= 9) {
+      controlScore = Math.max(0, 71 - ((excessiveMovement - 6) * 12)); // 6°超えで12点ずつ減点（厳しく）
+    } else if (excessiveMovement <= 11) {
+      controlScore = Math.max(0, 35 - ((excessiveMovement - 9) * 10)); // 9°超えで10点ずつ減点
     } else {
-      controlScore = Math.max(0, 20 - ((excessiveMovement - 12) * 5)); // 12°超えで5点ずつ減点
+      controlScore = Math.max(0, 15 - ((excessiveMovement - 11) * 5)); // 11°超えで5点ずつ減点
     }
     
     let status: 'normal' | 'caution' | 'abnormal' = 'normal';
     let description = '座位膝伸展時の腰椎制御';
     
-    if (controlScore >= 78) {
+    if (controlScore >= 82) {
       status = 'normal';
       description = '良好な腰椎制御';
-    } else if (controlScore >= 58) {
+    } else if (controlScore >= 65) {
       status = 'caution';
       description = '腰椎制御にやや課題';
     } else {
@@ -424,7 +424,7 @@ function addSeatedLumbarControlMetric(
       unit: "点",
       status: status,
       description: description,
-      normalRange: "78-100点（良好な制御）"
+      normalRange: "82-100点（良好な制御）"
     });
   }
 }
