@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import type { TimeSeriesDataPoint } from '../hooks/useTimeSeriesData';
 
-interface LumbarAngleChartProps {
+interface LumbarExcessiveMovementChartProps {
   data: TimeSeriesDataPoint[];
   isRecording: boolean;
   duration: number;
@@ -27,7 +27,7 @@ interface Statistics {
   abnormalPercentage: number;
 }
 
-interface LumbarAngleChartWithStatsProps extends LumbarAngleChartProps {
+interface LumbarExcessiveMovementChartWithStatsProps extends LumbarExcessiveMovementChartProps {
   statistics: Statistics;
   onExport: () => void;
   onClear: () => void;
@@ -41,7 +41,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
         <p className="text-sm font-medium">{`時間: ${Number(label).toFixed(1)}秒`}</p>
         <p className="text-sm" style={{ color: payload[0].color }}>
-          {`角度: ${data.lumbarAngle.toFixed(1)}°`}
+          {`過剰運動量: ${data.lumbarAngle.toFixed(1)}°`}
         </p>
         <p className="text-xs text-gray-600">
           ステータス: {data.status === 'normal' ? '正常' : data.status === 'caution' ? '注意' : '異常'}
@@ -79,7 +79,7 @@ const CustomDot = (props: any) => {
   );
 };
 
-export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
+export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChartProps> = ({
   data,
   isRecording,
   duration
@@ -87,7 +87,7 @@ export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
   return (
     <div className="bg-white p-4 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">胸腰椎角度 時系列グラフ</h3>
+        <h3 className="text-lg font-medium">腰椎過剰運動量 時系列グラフ</h3>
         <div className="flex items-center space-x-4">
           <div className={`flex items-center ${isRecording ? 'text-red-500' : 'text-gray-500'}`}>
             <div className={`w-2 h-2 rounded-full mr-1 ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`}></div>
@@ -111,18 +111,16 @@ export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
               stroke="#6b7280"
             />
             <YAxis 
-              domain={[-90, 90]}
+              domain={[0, 30]}
               tickFormatter={(value) => `${value}°`}
               stroke="#6b7280"
             />
             <Tooltip content={<CustomTooltip />} />
             
-            {/* 日本整形外科学会基準の基準線 */}
-            <ReferenceLine y={30} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.7} />
-            <ReferenceLine y={-20} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.7} />
-            <ReferenceLine y={45} stroke="#ef4444" strokeDasharray="2 2" opacity={0.7} />
-            <ReferenceLine y={-30} stroke="#ef4444" strokeDasharray="2 2" opacity={0.7} />
-            <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="1 1" opacity={0.5} />
+            {/* 腰椎過剰運動量の基準線 */}
+            <ReferenceLine y={8} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.8} />
+            <ReferenceLine y={15} stroke="#ef4444" strokeDasharray="2 2" opacity={0.8} />
+            <ReferenceLine y={0} stroke="#10b981" strokeDasharray="1 1" opacity={0.5} />
             
             {/* メインライン */}
             <Line 
@@ -140,28 +138,40 @@ export const LumbarAngleChart: React.FC<LumbarAngleChartProps> = ({
       {/* 凡例 */}
       <div className="mt-4 flex flex-wrap justify-center space-x-6 text-xs">
         <div className="flex items-center">
-          <div className="w-3 h-0.5 bg-gray-400 mr-1"></div>
-          <span>基準線 (0°)</span>
+          <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
+          <span>正常 (0-8°)</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-3 h-3 bg-yellow-500 rounded-full mr-1"></div>
+          <span>注意 (8-15°)</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-3 h-3 bg-red-500 rounded-full mr-1"></div>
+          <span>異常 (15°以上)</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-3 h-0.5 bg-green-500 mr-1"></div>
+          <span>正常範囲 (0°)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-0.5 bg-yellow-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
-          <span>注意範囲 (屈曲30°/伸展20°)</span>
+          <span>注意境界 (8°)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-0.5 bg-red-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
-          <span>異常範囲 (屈曲45°/伸展30°)</span>
+          <span>異常境界 (15°)</span>
         </div>
       </div>
       
       {/* 注意事項 */}
-      <div className="mt-3 p-2 bg-yellow-50 border-l-4 border-yellow-400 text-xs text-gray-600">
-        <strong>注意:</strong> 胸腰椎一括測定のため誤差が生じやすく、骨盤前傾時は腰椎伸展として検出される傾向があります。
+      <div className="mt-3 p-2 bg-blue-50 border-l-4 border-blue-400 text-xs text-gray-600">
+        <strong>説明:</strong> 腰椎過剰運動量は中立位からの偏差を測定し、テスト別にオフセット調整されています。0°に近いほど良好な腰椎制御を示します。
       </div>
     </div>
   );
 };
 
-export const LumbarAngleChartWithStats: React.FC<LumbarAngleChartWithStatsProps> = ({
+export const LumbarExcessiveMovementChartWithStats: React.FC<LumbarExcessiveMovementChartWithStatsProps> = ({
   data,
   isRecording,
   duration,
@@ -171,7 +181,7 @@ export const LumbarAngleChartWithStats: React.FC<LumbarAngleChartWithStatsProps>
 }) => {
   return (
     <div className="space-y-4">
-      <LumbarAngleChart data={data} isRecording={isRecording} duration={duration} />
+      <LumbarExcessiveMovementChart data={data} isRecording={isRecording} duration={duration} />
       
       {/* 統計情報 */}
       {data.length > 0 && (

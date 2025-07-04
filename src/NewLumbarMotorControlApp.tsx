@@ -15,7 +15,7 @@ import { LANDMARKS } from './types';
 import { resetAngleFilter, calculateFilteredLumbarAngle, calculateMidpoint } from './utils/geometryUtils';
 
 // コンポーネントのインポート
-import { LumbarAngleChartWithStats } from './components/LumbarAngleChart';
+import { LumbarExcessiveMovementChartWithStats } from './components/LumbarAngleChart';
 
 // =================================================================
 // 1. タイプ定義
@@ -448,7 +448,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, [isPlaying, isVideoLoaded, isModelLoaded]);
 
-  // 腰椎角度の取得と記録
+  // 腰椎過剰運動量の取得と記録
   useEffect(() => {
     if (timeSeriesData.isRecording && result && result.worldLandmarks && result.worldLandmarks.length > 0) {
       const landmarks = result.worldLandmarks[0];
@@ -468,10 +468,15 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         );
         
         const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
-        addDataPoint(lumbarAngle);
+        
+        // テスト別のオフセット調整で腰椎過剰運動量を計算
+        const neutralOffset = testType === 'rockBack' ? 12 : 8;
+        const excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - neutralOffset);
+        
+        addDataPoint(excessiveMovement);
       }
     }
-  }, [result, timeSeriesData.isRecording, addDataPoint]);
+  }, [result, timeSeriesData.isRecording, addDataPoint, testType]);
 
   const handleVideoUpload = useCallback((file: File) => {
     const url = URL.createObjectURL(file);
@@ -1956,7 +1961,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           
           {/* 時系列グラフ表示 */}
           {showChart && (
-            <LumbarAngleChartWithStats
+            <LumbarExcessiveMovementChartWithStats
               data={timeSeriesData.data}
               isRecording={timeSeriesData.isRecording}
               duration={timeSeriesData.duration}

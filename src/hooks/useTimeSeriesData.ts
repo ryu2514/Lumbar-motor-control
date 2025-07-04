@@ -3,7 +3,7 @@ import { useState, useCallback, useRef } from 'react';
 export interface TimeSeriesDataPoint {
   timestamp: number;
   time: number; // 経過時間（秒）
-  lumbarAngle: number;
+  lumbarAngle: number; // 腰椎過剰運動量（°）
   status: 'normal' | 'caution' | 'abnormal';
 }
 
@@ -53,25 +53,26 @@ export const useTimeSeriesData = () => {
   }, []);
 
   // データポイント追加
-  const addDataPoint = useCallback((lumbarAngle: number) => {
+  const addDataPoint = useCallback((excessiveMovement: number) => {
     setTimeSeriesData(prev => {
       if (!prev.isRecording || prev.startTime === null) return prev;
 
       const now = Date.now();
       const timeElapsed = (now - prev.startTime) / 1000; // 秒に変換
 
-      // 日本整形外科学会基準による状態判定
+      // 腰椎過剰運動量による状態判定
       let status: 'normal' | 'caution' | 'abnormal' = 'normal';
-      if (lumbarAngle > 45 || lumbarAngle < -30) {
-        status = 'abnormal';
-      } else if (lumbarAngle > 30 || lumbarAngle < -20) {
-        status = 'caution';
+      if (excessiveMovement >= 15) {
+        status = 'abnormal';  // 15°以上で異常
+      } else if (excessiveMovement >= 8) {
+        status = 'caution';   // 8-15°で注意
       }
+      // 0-8°で正常
 
       const newDataPoint: TimeSeriesDataPoint = {
         timestamp: now,
         time: timeElapsed,
-        lumbarAngle,
+        lumbarAngle: excessiveMovement,
         status
       };
 
@@ -108,7 +109,7 @@ export const useTimeSeriesData = () => {
     const { data } = timeSeriesData;
     if (data.length === 0) return;
 
-    const csvHeader = 'Time(s),Lumbar Angle(°),Status\n';
+    const csvHeader = 'Time(s),Excessive Movement(°),Status\n';
     const csvContent = data
       .map(point => `${point.time.toFixed(1)},${point.lumbarAngle.toFixed(1)},${point.status}`)
       .join('\n');
@@ -120,7 +121,7 @@ export const useTimeSeriesData = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `lumbar-angle-data-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    link.setAttribute('download', `lumbar-excessive-movement-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
