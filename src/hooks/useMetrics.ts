@@ -388,29 +388,29 @@ function addSeatedLumbarControlMetric(
       腰座標: hipMid
     });
     
-    // 座位膝伸展テスト用の適切な評価基準
+    // 座位膝伸展テスト用の甘めの評価基準
     let controlScore = 0;
-    if (excessiveMovement <= 2) {
-      controlScore = 100; // 優秀な制御
-    } else if (excessiveMovement <= 4) {
-      controlScore = 100 - ((excessiveMovement - 2) * 5); // 2°超えで5点ずつ減点
-    } else if (excessiveMovement <= 6) {
-      controlScore = 90 - ((excessiveMovement - 4) * 10); // 4°超えで10点ずつ減点
-    } else if (excessiveMovement <= 10) {
-      controlScore = Math.max(0, 70 - ((excessiveMovement - 6) * 5)); // 6°超えで5点ずつ減点
-    } else if (excessiveMovement <= 15) {
-      controlScore = Math.max(0, 50 - ((excessiveMovement - 10) * 4)); // 10°超えで4点ずつ減点
+    if (excessiveMovement <= 3) {
+      controlScore = 100; // 優秀な制御（範囲を拡大）
+    } else if (excessiveMovement <= 5) {
+      controlScore = 100 - ((excessiveMovement - 3) * 2.5); // 3°超えで2.5点ずつ減点
+    } else if (excessiveMovement <= 8) {
+      controlScore = 95 - ((excessiveMovement - 5) * 5); // 5°超えで5点ずつ減点
+    } else if (excessiveMovement <= 12) {
+      controlScore = Math.max(0, 80 - ((excessiveMovement - 8) * 5)); // 8°超えで5点ずつ減点
+    } else if (excessiveMovement <= 18) {
+      controlScore = Math.max(0, 60 - ((excessiveMovement - 12) * 3)); // 12°超えで3点ずつ減点
     } else {
-      controlScore = Math.max(0, 30 - ((excessiveMovement - 15) * 2)); // 15°超えで2点ずつ減点
+      controlScore = Math.max(0, 42 - ((excessiveMovement - 18) * 2)); // 18°超えで2点ずつ減点
     }
     
     let status: 'normal' | 'caution' | 'abnormal' = 'normal';
     let description = '座位膝伸展時の腰椎制御';
     
-    if (controlScore >= 80) {
+    if (controlScore >= 75) {
       status = 'normal';
       description = '良好な腰椎制御';
-    } else if (controlScore >= 60) {
+    } else if (controlScore >= 55) {
       status = 'caution';
       description = '腰椎制御にやや課題';
     } else {
@@ -424,7 +424,7 @@ function addSeatedLumbarControlMetric(
       unit: "点",
       status: status,
       description: description,
-      normalRange: "80-100点（良好な制御）"
+      normalRange: "75-100点（良好な制御）"
     });
   }
 }
