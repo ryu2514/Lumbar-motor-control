@@ -254,7 +254,7 @@ const LumbarAngleVisualizer: React.FC<{ angle: number }> = ({ angle }) => {
 };
 
 // 指標表示
-const MetricsDisplay: React.FC<{ metrics: Metric[] }> = ({ metrics }) => {
+const MetricsDisplay: React.FC<{ metrics: Metric[]; compact?: boolean }> = ({ metrics, compact = false }) => {
   if (!metrics || metrics.length === 0) {
     return <p className="text-gray-500 text-center">指標の計算中...</p>;
   }
@@ -269,10 +269,10 @@ const MetricsDisplay: React.FC<{ metrics: Metric[] }> = ({ metrics }) => {
         <LumbarAngleVisualizer angle={lumbarAngleMetric.value} />
       )}
       
-      <h3 className="text-lg font-medium mb-3">評価結果</h3>
-      <div className="space-y-4">
+      {!compact && <h3 className="text-lg font-medium mb-3">評価結果</h3>}
+      <div className={compact ? "space-y-2" : "space-y-4"}>
         {metrics.map((metric, index) => (
-          <div key={index} className="bg-gray-50 p-3 rounded-md">
+          <div key={index} className={`bg-gray-50 rounded-md ${compact ? "p-2.5" : "p-3"}`}>
             <div className="flex justify-between items-center mb-1">
               <h4 className="font-medium">{metric.label}</h4>
               <span className={`px-2 py-0.5 rounded text-sm ${
@@ -1612,7 +1612,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               
               {/* 評価指標の表示 */}
               {isVideoLoaded ? (
-                <MetricsDisplay metrics={metrics} />
+                <MetricsDisplay metrics={metrics} compact={true} />
               ) : (
                 <div className="text-center text-gray-500 py-4">
                   <p className="mb-2">動画を再生すると評価結果が表示されます</p>
