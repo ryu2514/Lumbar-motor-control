@@ -388,29 +388,29 @@ function addSeatedLumbarControlMetric(
       腰座標: hipMid
     });
     
-    // 座位膝伸展テスト用の厳しめ評価基準（6.5°以上で極めて厳しく減点）
+    // 座位膝伸展テスト用の非常に厳しい評価基準（5°以上で大幅減点）
     let controlScore = 0;
-    if (excessiveMovement <= 2) {
-      controlScore = 100; // 優秀な制御（範囲を狭める）
-    } else if (excessiveMovement <= 3.5) {
-      controlScore = 100 - ((excessiveMovement - 2) * 6); // 2°超えで6点ずつ減点
-    } else if (excessiveMovement <= 6.5) {
-      controlScore = 91 - ((excessiveMovement - 3.5) * 8); // 3.5°超えで8点ずつ減点
-    } else if (excessiveMovement <= 8.5) {
-      controlScore = Math.max(0, 67 - ((excessiveMovement - 6.5) * 22)); // 6.5°超えで22点ずつ減点（極めて厳しく）
-    } else if (excessiveMovement <= 10) {
-      controlScore = Math.max(0, 23 - ((excessiveMovement - 8.5) * 12)); // 8.5°超えで12点ずつ減点
+    if (excessiveMovement <= 1.5) {
+      controlScore = 100; // 完璧な制御（範囲をさらに狭める）
+    } else if (excessiveMovement <= 3) {
+      controlScore = 100 - ((excessiveMovement - 1.5) * 10); // 1.5°超えで10点ずつ減点
+    } else if (excessiveMovement <= 5) {
+      controlScore = 85 - ((excessiveMovement - 3) * 15); // 3°超えで15点ずつ減点
+    } else if (excessiveMovement <= 7) {
+      controlScore = Math.max(0, 55 - ((excessiveMovement - 5) * 25)); // 5°超えで25点ずつ減点（非常に厳しく）
+    } else if (excessiveMovement <= 9) {
+      controlScore = Math.max(0, 5 - ((excessiveMovement - 7) * 2)); // 7°超えで2点ずつ減点
     } else {
-      controlScore = Math.max(0, 5 - ((excessiveMovement - 10) * 1)); // 10°超えで1点ずつ減点
+      controlScore = Math.max(0, 1); // 9°超えは1点固定
     }
     
     let status: 'normal' | 'caution' | 'abnormal' = 'normal';
     let description = '座位膝伸展時の腰椎制御';
     
-    if (controlScore >= 82) {
+    if (controlScore >= 85) {
       status = 'normal';
       description = '良好な腰椎制御';
-    } else if (controlScore >= 65) {
+    } else if (controlScore >= 70) {
       status = 'caution';
       description = '腰椎制御にやや課題';
     } else {
@@ -424,7 +424,7 @@ function addSeatedLumbarControlMetric(
       unit: "点",
       status: status,
       description: description,
-      normalRange: "82-100点（良好な制御）"
+      normalRange: "85-100点（良好な制御）"
     });
   }
 }
