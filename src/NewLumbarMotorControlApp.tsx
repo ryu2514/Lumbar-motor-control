@@ -639,16 +639,11 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         duration: video.duration,
         networkState: video.networkState,
         currentSrc: video.currentSrc,
-        isUploadedVideo: useUploadedVideo,
-        isMobile
+        isUploadedVideo: useUploadedVideo
       });
       
-      // シンプルな条件: アップロード動画は最低限の条件、デモ動画は従来通り
-      const isVideoReady = useUploadedVideo 
-        ? video.readyState >= 1 // アップロード動画は readyState 1 以上で OK
-        : video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0; // デモ動画は従来通り
-      
-      if (isVideoReady) {
+      // シンプルな条件: readyState が 1 以上なら OK
+      if (video.readyState >= 1) {
         setIsVideoLoaded(true);
         
         // タイムアウトをクリア
@@ -661,41 +656,22 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       } else {
         console.warn('動画のメタデータが不完全:', {
           readyState: video.readyState,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
           isUploadedVideo: useUploadedVideo
         });
         
-        // 動画の再チェック（アップロード動画とデモ動画両方）
+        // 1秒後に再チェック
         setTimeout(() => {
-          if (videoRef.current) {
+          if (videoRef.current && !isVideoLoaded) {
             const video = videoRef.current;
-            // デモ動画の場合は少し緩い条件で再チェック
-            const isReadyOnRetry = useUploadedVideo 
-              ? video.readyState >= 1
-              : video.readyState >= 1 && (video.videoWidth > 0 || video.duration > 0);
-            
-            if (isReadyOnRetry) {
+            if (video.readyState >= 1) {
               setIsVideoLoaded(true);
               console.log('✅ 動画読み込み完了（再チェック）', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
-            } else if (!useUploadedVideo) {
-              // デモ動画の場合、さらに緩い条件で最終チェック
-              console.log('🔄 デモ動画最終チェック試行');
-              setTimeout(() => {
-                if (videoRef.current && !isVideoLoaded) {
-                  const video = videoRef.current;
-                  if (video.readyState >= 1) {
-                    setIsVideoLoaded(true);
-                    console.log('✅ デモ動画読み込み完了（最終チェック）');
-                  }
-                }
-              }, 2000);
             }
           }
         }, 1000);
       }
     }
-  }, [loadingTimeout, useUploadedVideo]);
+  }, [loadingTimeout, useUploadedVideo, isVideoLoaded]);
 
   // 比較表示の切り替え
   const toggleComparison = useCallback(() => {
@@ -1335,64 +1311,45 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   }}
                   onLoadedMetadata={() => {
                     console.log('Video metadata loaded');
-                    // アップロード動画の場合、メタデータ読み込み時点で利用可能とみなす
-                    if (useUploadedVideo && videoRef.current) {
+                    // メタデータ読み込み時点で利用可能とみなす
+                    if (videoRef.current) {
                       setIsVideoLoaded(true);
                       if (loadingTimeout) {
                         clearTimeout(loadingTimeout);
                         setLoadingTimeout(null);
                       }
-                      console.log('✅ アップロード動画メタデータ読み込み完了');
+                      console.log('✅ 動画メタデータ読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
                     }
                   }}
                   onLoadedData={handleVideoLoaded}
                   onCanPlay={() => {
                     console.log('Video can play event');
                     if (videoRef.current) {
-                      const video = videoRef.current;
-                      // シンプルな条件: アップロード動画はすぐに受け入れ、デモ動画は従来通り
-                      const canPlay = useUploadedVideo 
-                        ? true // アップロード動画は canPlay が発火すれば OK
-                        : video.readyState >= 3 && video.videoWidth > 0; // デモ動画は従来通り
+                      // シンプルな条件: canPlay が発火すれば基本的に OK
+                      setIsVideoLoaded(true);
                       
-                      if (canPlay) {
-                        setIsVideoLoaded(true);
-                        
-                        // タイムアウトをクリア
-                        if (loadingTimeout) {
-                          clearTimeout(loadingTimeout);
-                          setLoadingTimeout(null);
-                        }
-                        
-                        console.log('✅ Video can play - 読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
+                      // タイムアウトをクリア
+                      if (loadingTimeout) {
+                        clearTimeout(loadingTimeout);
+                        setLoadingTimeout(null);
                       }
+                      
+                      console.log('✅ Video can play - 読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
                     }
                   }}
                   onCanPlayThrough={() => {
                     console.log('Video can play through event');
                     if (videoRef.current) {
-                      const video = videoRef.current;
-                      if (video.videoWidth > 0 && video.videoHeight > 0) {
-                        setIsVideoLoaded(true);
-                        
-                        // タイムアウトをクリア
-                        if (loadingTimeout) {
-                          clearTimeout(loadingTimeout);
-                          setLoadingTimeout(null);
-                        }
-                        
-                        console.log('✅ Video can play through - 完全読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
-                        
-                        // デモ動画の場合、readyState が低い場合は再試行
-                        if (!useUploadedVideo && video.readyState < 3) {
-                          console.log('🔄 デモ動画のreadyState低い、再試行');
-                          setTimeout(() => {
-                            if (videoRef.current && !isVideoLoaded) {
-                              videoRef.current.load();
-                            }
-                          }, 500);
-                        }
+                      // canPlayThrough が発火すれば確実に OK
+                      setIsVideoLoaded(true);
+                      
+                      // タイムアウトをクリア
+                      if (loadingTimeout) {
+                        clearTimeout(loadingTimeout);
+                        setLoadingTimeout(null);
                       }
+                      
+                      console.log('✅ Video can play through - 完全読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
                     }
                   }}
                   onPlay={() => {
