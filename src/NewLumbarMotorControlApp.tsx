@@ -297,6 +297,9 @@ const MetricsDisplay: React.FC<{ metrics: Metric[] }> = ({ metrics }) => {
 // 5. メインアプリケーションコンポーネント
 // =================================================================
 export const NewLumbarMotorControlApp: React.FC = () => {
+  // デバイス検出
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   // テスト種類の状態管理
   const [testType, setTestType] = useState<TestType>('standingHipFlex');
   const [videoUrl, setVideoUrl] = useState<string>(DEMO_VIDEOS[testType]);
@@ -517,13 +520,38 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
+      
+      // モバイルの場合は追加の準備処理
+      if (isMobile) {
+        // モバイルでは preload を設定
+        videoRef.current.preload = 'metadata';
+        console.log('📱 モバイル向け動画設定適用');
+      }
+      
       // アップロード動画の読み込みを強制的に開始
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.load();
-          console.log('🔄 アップロード動画の読み込み開始');
+          console.log('🔄 アップロード動画の読み込み開始', isMobile ? '(モバイル)' : '(デスクトップ)');
+          
+          // モバイルの場合は追加で段階的チェック
+          if (isMobile) {
+            const checkMobileLoading = () => {
+              if (videoRef.current && !isVideoLoaded) {
+                console.log('📱 モバイル読み込み状況:', {
+                  readyState: videoRef.current.readyState,
+                  networkState: videoRef.current.networkState,
+                  error: videoRef.current.error
+                });
+                
+                // 5秒後に再度チェック
+                setTimeout(checkMobileLoading, 5000);
+              }
+            };
+            setTimeout(checkMobileLoading, 2000);
+          }
         }
-      }, 100);
+      }, isMobile ? 300 : 100); // モバイルは少し長めに待機
     }
     
     if (demoVideoRef.current) {
@@ -628,11 +656,14 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         duration: video.duration,
         networkState: video.networkState,
         currentSrc: video.currentSrc,
-        isUploadedVideo: useUploadedVideo
+        isUploadedVideo: useUploadedVideo,
+        isMobile
       });
       
-      // アップロード動画の場合は条件を緩和
-      const isVideoReady = useUploadedVideo 
+      // モバイルの場合は更に条件を緩和
+      const isVideoReady = isMobile && useUploadedVideo
+        ? video.readyState >= 1 // モバイル+アップロード動画は最も緩い条件
+        : useUploadedVideo 
         ? video.readyState >= 1 && (video.videoWidth > 0 || video.duration > 0) // アップロード動画は条件緩和
         : video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0; // デモ動画は従来通り
       
@@ -645,27 +676,43 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           setLoadingTimeout(null);
         }
         
-        console.log('✅ 動画読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
+        console.log('✅ 動画読み込み完了', 
+          isMobile ? '(モバイル)' : '', 
+          useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
       } else {
         console.warn('動画のメタデータが不完全:', {
           readyState: video.readyState,
           videoWidth: video.videoWidth,
           videoHeight: video.videoHeight,
-          isUploadedVideo: useUploadedVideo
+          isUploadedVideo: useUploadedVideo,
+          isMobile
         });
         
-        // アップロード動画の場合、少し待ってから再チェック
-        if (useUploadedVideo) {
-          setTimeout(() => {
-            if (videoRef.current && videoRef.current.readyState >= 1) {
-              setIsVideoLoaded(true);
-              console.log('✅ アップロード動画読み込み完了（再チェック）');
-            }
-          }, 1000);
+        // モバイルまたはアップロード動画の場合、段階的に再チェック
+        if (isMobile || useUploadedVideo) {
+          const retryChecks = [500, 1500, 3000]; // 段階的に待機時間を延長
+          
+          retryChecks.forEach((delay, index) => {
+            setTimeout(() => {
+              if (videoRef.current && !isVideoLoaded) {
+                const currentVideo = videoRef.current;
+                console.log(`📱 モバイル読み込み再チェック ${index + 1}:`, {
+                  readyState: currentVideo.readyState,
+                  duration: currentVideo.duration,
+                  videoWidth: currentVideo.videoWidth
+                });
+                
+                if (currentVideo.readyState >= 1 || currentVideo.duration > 0) {
+                  setIsVideoLoaded(true);
+                  console.log(`✅ モバイル動画読み込み完了（再チェック ${index + 1}）`);
+                }
+              }
+            }, delay);
+          });
         }
       }
     }
-  }, [loadingTimeout, useUploadedVideo]);
+  }, [loadingTimeout, useUploadedVideo, isMobile, isVideoLoaded]);
 
   // 比較表示の切り替え
   const toggleComparison = useCallback(() => {
@@ -710,13 +757,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       videoRef.current.load();
     }
   }, [loadingTimeout]);
-  
-
-  // デバイス検出
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-
-
   // 解析動画の録画開始
   // 即座ダウンロード機能（モバイル対応）
   const downloadRecordedVideo = useCallback(() => {
@@ -1290,8 +1330,11 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   controlsList="nodownload nofullscreen noremoteplayback"
                   webkit-playsinline="true"
                   x5-playsinline="true"
-                  preload="metadata"
+                  preload={isMobile ? "metadata" : "auto"}
                   style={{ pointerEvents: 'none' }}
+                  crossOrigin="anonymous"
+                  muted={isMobile ? true : undefined}
+                  autoPlay={false}
                   onLoadStart={() => {
                     console.log('Video load start event');
                     setIsVideoLoaded(false);
@@ -1301,12 +1344,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                       clearTimeout(loadingTimeout);
                     }
                     
-                    // 30秒後にタイムアウト
+                    // モバイルの場合は長めのタイムアウト
+                    const timeoutDuration = isMobile ? 60000 : 30000; // モバイル: 60秒、デスクトップ: 30秒
                     const timeoutId = window.setTimeout(() => {
                       if (!isVideoLoaded) {
-                        console.warn('⏰ Video loading timeout');
+                        console.warn('⏰ Video loading timeout', isMobile ? '(モバイル)' : '(デスクトップ)');
+                        if (isMobile) {
+                          console.log('📱 モバイルでのタイムアウト - 手動で再生ボタンを押してみてください');
+                        }
                       }
-                    }, 30000);
+                    }, timeoutDuration);
                     
                     setLoadingTimeout(timeoutId);
                   }}
@@ -1318,8 +1365,10 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                     console.log('Video can play event');
                     if (videoRef.current) {
                       const video = videoRef.current;
-                      // アップロード動画の場合は条件を緩和
-                      const canPlay = useUploadedVideo 
+                      // モバイルの場合は更に条件を緩和
+                      const canPlay = isMobile && useUploadedVideo
+                        ? video.readyState >= 2 // モバイル+アップロード動画は HAVE_CURRENT_DATA で十分
+                        : useUploadedVideo 
                         ? video.readyState >= 3 // アップロード動画は readyState のみチェック
                         : video.readyState >= 3 && video.videoWidth > 0; // デモ動画は従来通り
                       
@@ -1332,7 +1381,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                           setLoadingTimeout(null);
                         }
                         
-                        console.log('✅ Video can play - 読み込み完了', useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
+                        console.log('✅ Video can play - 読み込み完了', 
+                          isMobile ? '(モバイル)' : '', 
+                          useUploadedVideo ? '(アップロード動画)' : '(デモ動画)');
                       }
                     }
                   }}
@@ -1451,10 +1502,15 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                 {!isVideoLoaded && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-3"></div>
-                    <div className="text-center">
+                    <div className="text-center px-4">
                       <p className="font-medium">
                         {useUploadedVideo ? 'アップロード動画読み込み中...' : '動画読み込み中...'}
                       </p>
+                      {isMobile && (
+                        <p className="text-sm text-blue-300 mt-1">
+                          📱 モバイル端末では時間がかかる場合があります
+                        </p>
+                      )}
                       {videoRetryCount > 0 && (
                         <p className="text-sm text-yellow-300 mt-1">
                           再試行中... ({videoRetryCount}/3)
