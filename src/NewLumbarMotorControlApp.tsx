@@ -8,8 +8,11 @@ import { usePoseLandmarker } from './hooks/usePoseLandmarker';
 import { useMetrics } from './hooks/useMetrics';
 import { useTimeSeriesData } from './hooks/useTimeSeriesData';
 
+// 型定義のインポート
+import { LANDMARKS } from './types';
+
 // ユーティリティのインポート
-import { resetAngleFilter } from './utils/geometryUtils';
+import { resetAngleFilter, calculateFilteredLumbarAngle, calculateMidpoint } from './utils/geometryUtils';
 
 // コンポーネントのインポート
 import { LumbarAngleChartWithStats } from './components/LumbarAngleChart';
@@ -445,13 +448,30 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     }
   }, [isPlaying, isVideoLoaded, isModelLoaded]);
 
-  // 胸腰椎角度の取得と記録
+  // 腰椎角度の取得と記録
   useEffect(() => {
-    const lumbarAngleMetric = metrics.find(m => m.label === '胸腰椎屈曲・伸展角度');
-    if (lumbarAngleMetric && timeSeriesData.isRecording) {
-      addDataPoint(lumbarAngleMetric.value);
+    if (timeSeriesData.isRecording && result && result.worldLandmarks && result.worldLandmarks.length > 0) {
+      const landmarks = result.worldLandmarks[0];
+      
+      // 必要なランドマークが検出されている場合のみ計算
+      if (landmarks[LANDMARKS.LEFT_SHOULDER] && landmarks[LANDMARKS.RIGHT_SHOULDER] &&
+          landmarks[LANDMARKS.LEFT_HIP] && landmarks[LANDMARKS.RIGHT_HIP]) {
+        
+        const shoulderMid = calculateMidpoint(
+          landmarks[LANDMARKS.LEFT_SHOULDER],
+          landmarks[LANDMARKS.RIGHT_SHOULDER]
+        );
+        
+        const hipMid = calculateMidpoint(
+          landmarks[LANDMARKS.LEFT_HIP],
+          landmarks[LANDMARKS.RIGHT_HIP]
+        );
+        
+        const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
+        addDataPoint(lumbarAngle);
+      }
     }
-  }, [metrics, timeSeriesData.isRecording, addDataPoint]);
+  }, [result, timeSeriesData.isRecording, addDataPoint]);
 
   const handleVideoUpload = useCallback((file: File) => {
     const url = URL.createObjectURL(file);
