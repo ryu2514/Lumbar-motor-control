@@ -337,7 +337,8 @@ function addLumbarFlexionExtensionMetric(
     
     // 3. 腰椎屈曲・伸展角度（可動域評価）
     // 軽度の前傾が正常
-    const correctedAngle = lumbarAngle - 5; // 5°のオフセット補正
+    const flexionOffset = testType === 'rockBack' ? 8 : 5; // テスト別オフセット調整
+    const correctedAngle = lumbarAngle - flexionOffset;
     let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let angleDescription = '腰椎の前後屈角度（可動域評価）';
     
