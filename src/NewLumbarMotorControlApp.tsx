@@ -269,7 +269,7 @@ const MetricsDisplay: React.FC<{ metrics: Metric[]; compact?: boolean }> = ({ me
         <LumbarAngleVisualizer angle={lumbarAngleMetric.value} />
       )}
       
-      {!compact && <h3 className="text-lg font-medium mb-3">評価結果</h3>}
+      <h3 className="text-lg font-medium mb-3">📊 評価結果</h3>
       <div className={compact ? "space-y-2" : "space-y-4"}>
         {metrics.map((metric, index) => (
           <div key={index} className={`bg-gray-50 rounded-md ${compact ? "p-2.5" : "p-3"}`}>
@@ -1608,8 +1608,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             
             {/* スマホ表示: 動画の直後に評価結果を配置 */}
             <div className="lg:hidden mt-3 mb-6 border-t border-gray-200 pt-4">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">📊 評価結果</h2>
-              
               {/* 評価指標の表示 */}
               {isVideoLoaded ? (
                 <MetricsDisplay metrics={metrics} compact={true} />
