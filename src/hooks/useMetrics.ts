@@ -63,14 +63,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       
       // テスト固有のメトリクスを追加
       if (testType === 'standingHipFlex') {
-        waitingMetrics.push({
-          label: "股関節屈曲角度",
-          value: 0,
-          unit: "°",
-          status: 'caution',
-          description: '姿勢データを取得中...',
-          normalRange: "0-90°"
-        });
+        // 立位股関節屈曲テストでは腰椎関連メトリクスのみ表示
       } else if (testType === 'rockBack') {
         // ロックバックテストでは腰椎関連メトリクスのみ表示
       } else if (testType === 'seatedKneeExt') {
@@ -192,15 +185,6 @@ function calculateOverallScore(metrics: Metric[]): Metric {
       // -15°〜+15°の範囲で100点、それを超えると減点
       const deviation = Math.abs(metric.value);
       normalizedScore = Math.max(0, 100 - (Math.max(0, deviation - 15) * 5));
-    } else if (metric.label === "股関節屈曲角度") {
-      // 0-90°の範囲で評価、90°で100点
-      if (metric.value <= 90) {
-        normalizedScore = 100;
-      } else if (metric.value <= 120) {
-        normalizedScore = 100 - ((metric.value - 90) * 2); // 90°超えで減点
-      } else {
-        normalizedScore = Math.max(0, 40 - ((metric.value - 120) * 2)); // 120°超えでさらに減点
-      }
     } else if (metric.label === "座位腰椎制御スコア") {
       // 既に適切にスコア化されているのでそのまま使用
       normalizedScore = metric.value;
@@ -438,44 +422,13 @@ function addSeatedLumbarControlMetric(
  */
 function calculateStandingHipFlexMetrics(
   _landmarks: any[], // 未使用パラメータをアンダースコア接頭辞で明示
-  metrics: Metric[],
-  isLandmarkVisible: (index: number, threshold?: number) => boolean,
-  getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number },
+  _metrics: Metric[], // 未使用パラメータをアンダースコア接頭辞で明示
+  _isLandmarkVisible: (index: number, threshold?: number) => boolean, // 未使用パラメータをアンダースコア接頭辞で明示
+  _getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number }, // 未使用パラメータをアンダースコア接頭辞で明示
   _movementHistory: any[] // 未使用パラメータをアンダースコア接頭辞で明示
 ) {
-  if (isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
-      isLandmarkVisible(LANDMARKS.LEFT_KNEE) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_KNEE) &&
-      isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) &&
-      isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER)) {
-    
-    // 股関節屈曲角度計算
-    const hipMid = getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP);
-    const kneeMid = getMidpoint(LANDMARKS.LEFT_KNEE, LANDMARKS.RIGHT_KNEE);
-    
-    // 股関節角度（大腿部と垂直線の角度）
-    const thighVector = calculateVector(hipMid, kneeMid);
-    const verticalVector = { x: 0, y: 1, z: 0 };
-    const hipFlexAngle = radToDeg(calculateAngleBetweenVectors(thighVector, verticalVector));
-    
-    let hipStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    if (hipFlexAngle > 120) hipStatus = 'abnormal';
-    else if (hipFlexAngle > 90) hipStatus = 'caution';
-    
-    metrics.push({
-      label: "股関節屈曲角度",
-      value: Number(hipFlexAngle.toFixed(1)),
-      unit: "°",
-      status: hipStatus,
-      description: "股関節の屈曲角度を測定",
-      normalRange: "0-90°"
-    });
-
-    // 股関節-腰椎リズム（削除済み）
-
-    // 動作速度（削除済み）
-  }
+  // 立位股関節屈曲テストでは腰椎関連メトリクスのみを評価
+  // これらは addLumbarFlexionExtensionMetric 関数で処理されます
 }
 
 /**
