@@ -303,7 +303,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isModelLoaded, setIsModelLoaded] = useState<boolean>(false);
   const [showComparison, setShowComparison] = useState<boolean>(false);
-  const [showChart, setShowChart] = useState<boolean>(false);
+  const [showChart, setShowChart] = useState<boolean>(true);
   const [videoRetryCount, setVideoRetryCount] = useState<number>(0);
   const [loadingTimeout, setLoadingTimeout] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState<boolean>(false);
