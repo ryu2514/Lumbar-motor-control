@@ -1606,8 +1606,25 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               )}
             </div>
             
+            {/* スマホ表示: 動画の直後に評価結果を配置 */}
+            <div className="lg:hidden mt-3 mb-6 border-t border-gray-200 pt-4">
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">📊 評価結果</h2>
+              
+              {/* 評価指標の表示 */}
+              {isVideoLoaded ? (
+                <MetricsDisplay metrics={metrics} />
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  <p className="mb-2">動画を再生すると評価結果が表示されます</p>
+                  {!isModelLoaded && (
+                    <p className="text-sm">姿勢検出モデル読み込み中...</p>
+                  )}
+                </div>
+              )}
+            </div>
+            
             {/* 動画コントロールエリア */}
-            <div className="space-y-3 mb-6">
+            <div className="space-y-3 mb-4">
               {/* 1行目: 再生ボタンとアップロードボタン */}
               <div className="grid grid-cols-2 gap-3">
                 {/* 再生/一時停止ボタン */}
@@ -1726,23 +1743,6 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   }
                 }}
               />
-            </div>
-            
-            {/* スマホ表示: 動画の下に評価結果を配置 */}
-            <div className="lg:hidden mt-6">
-              <h2 className="text-lg font-semibold mb-4">評価結果</h2>
-              
-              {/* 評価指標の表示 */}
-              {isVideoLoaded ? (
-                <MetricsDisplay metrics={metrics} />
-              ) : (
-                <div className="text-center text-gray-500">
-                  <p className="mb-2">動画を再生すると評価結果が表示されます</p>
-                  {!isModelLoaded && (
-                    <p className="text-sm">姿勢検出モデル読み込み中...</p>
-                  )}
-                </div>
-              )}
             </div>
             
           </div>
