@@ -121,12 +121,12 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       switch (testType) {
         case "standingHipFlex":
           // 立位股関節屈曲テスト：腰椎過剰運動量を含める
-          addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible);
+          addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible, testType);
           calculateStandingHipFlexMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint, movementHistory);
           break;
         case "rockBack":
           // ロックバックテスト：腰椎過剰運動量を含める
-          addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible);
+          addLumbarFlexionExtensionMetric(landmarks, calculatedMetrics, isLandmarkVisible, testType);
           calculateRockBackMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint);
           break;
         case "seatedKneeExt":
@@ -252,7 +252,8 @@ function calculateOverallScore(metrics: Metric[]): Metric {
 function addLumbarFlexionExtensionMetric(
   landmarks: any[],
   metrics: Metric[],
-  isLandmarkVisible: (index: number, threshold?: number) => boolean
+  isLandmarkVisible: (index: number, threshold?: number) => boolean,
+  testType: TestType
 ) {
   // 最低限のランドマークが検出されている場合のみ評価を実行
   if (isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) && 
@@ -314,7 +315,7 @@ function addLumbarFlexionExtensionMetric(
     
     // 2. 腰椎過剰運動量（安定性評価）
     // 中立位からの偏差を評価
-    const neutralOffset = 8; // 自然な中立位オフセット
+    const neutralOffset = testType === 'rockBack' ? 12 : 8; // テスト別オフセット調整
     const adjustedMovement = Math.max(0, Math.abs(lumbarAngle) - neutralOffset);
     
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
