@@ -1456,13 +1456,9 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       <TestSelector currentTest={testType} onChange={setTestType} />
       
       {/* メインコンテンツ */}
-      <div className={`grid gap-6 ${
-        showChart 
-          ? 'grid-cols-1 xl:grid-cols-2' 
-          : 'grid-cols-1 lg:grid-cols-3'
-      }`}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 左側: 動画と操作UIエリア */}
-        <div className={showChart ? '' : 'lg:col-span-2'}>
+        <div className="space-y-6">
           <div className="bg-white rounded-lg shadow-md p-4">
             <h2 className="text-lg font-semibold mb-4">{TEST_LABELS[testType]}</h2>
             
@@ -1939,11 +1935,29 @@ export const NewLumbarMotorControlApp: React.FC = () => {
             </div>
             
           </div>
+          
+          {/* スマホ表示: 動画の下に評価結果を配置 */}
+          <div className="lg:hidden bg-white rounded-lg shadow-md p-4">
+            <h2 className="text-lg font-semibold mb-4">評価結果</h2>
+            
+            {/* 評価指標の表示 */}
+            {isVideoLoaded ? (
+              <MetricsDisplay metrics={metrics} />
+            ) : (
+              <div className="text-center text-gray-500">
+                <p className="mb-2">動画を再生すると評価結果が表示されます</p>
+                {!isModelLoaded && (
+                  <p className="text-sm">姿勢検出モデル読み込み中...</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         
-        {/* 右側: 評価結果表示エリア */}
+        {/* 右側: 評価結果とグラフ表示エリア（デスクトップ・タブレット用） */}
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-4">
+          {/* デスクトップ表示: 評価結果 */}
+          <div className="hidden lg:block bg-white rounded-lg shadow-md p-4">
             <h2 className="text-lg font-semibold mb-4">評価結果</h2>
             
             {/* 評価指標の表示 */}
