@@ -322,8 +322,8 @@ function addLumbarFlexionExtensionMetric(
       adjustedMovement < 15 ? 'caution' : 'abnormal';
     
     const excessiveDescription = 
-      adjustedMovement < 8 ? '適切な腰椎制御' :
-      adjustedMovement < 15 ? '軽度の過剰運動' : '顕著な過剰運動';
+      adjustedMovement < 8 ? '適切な腰椎制御（安定性評価）' :
+      adjustedMovement < 15 ? '軽度の過剰運動（安定性評価）' : '顕著な過剰運動（安定性評価）';
     
     metrics.push({
       label: "腰椎過剰運動量",
@@ -338,16 +338,16 @@ function addLumbarFlexionExtensionMetric(
     // ロックバック動作では軽度の前傾が正常
     const correctedAngle = lumbarAngle - 5; // 5°のオフセット補正
     let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    let angleDescription = '腰椎の前後屈角度';
+    let angleDescription = '腰椎の前後屈角度（可動域評価）';
     
     if (Math.abs(correctedAngle) > 25) {
       angleStatus = 'abnormal';
-      angleDescription = correctedAngle > 0 ? '過度な腰椎屈曲（前屈）' : '過度な腰椎伸展（後屈）';
+      angleDescription = correctedAngle > 0 ? '過度な腰椎屈曲（前屈）- 可動域評価' : '過度な腰椎伸展（後屈）- 可動域評価';
     } else if (Math.abs(correctedAngle) > 15) {
       angleStatus = 'caution';
-      angleDescription = correctedAngle > 0 ? '軽度の腰椎屈曲' : '軽度の腰椎伸展';
+      angleDescription = correctedAngle > 0 ? '軽度の腰椎屈曲 - 可動域評価' : '軽度の腰椎伸展 - 可動域評価';
     } else {
-      angleDescription = '良好な腰椎アライメント';
+      angleDescription = '良好な腰椎アライメント（可動域評価）';
     }
     
     metrics.push({
