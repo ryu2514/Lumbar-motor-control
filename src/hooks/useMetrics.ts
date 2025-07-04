@@ -46,7 +46,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           unit: "°",
           status: 'caution',
           description: '姿勢データを取得中...',
-          normalRange: "0-10°（良好な制御）"
+          normalRange: "0-8°（良好な制御）"
         }
       );
       
@@ -186,15 +186,15 @@ function calculateOverallScore(metrics: Metric[]): Metric {
       normalizedScore = metric.value;
     } else if (metric.label === "腰椎過剰運動量") {
       // ロックバック動作では調整された過剰運動量を評価
-      // 0-10°が100点、10-20°で段階的減点、20-30°で更に減点
-      if (metric.value <= 10) {
+      // 0-8°が100点、8-15°で段階的減点、15-25°で更に減点
+      if (metric.value <= 8) {
         normalizedScore = 100;
-      } else if (metric.value <= 20) {
-        normalizedScore = 100 - ((metric.value - 10) * 5); // 10°超えで5点ずつ減点
-      } else if (metric.value <= 30) {
-        normalizedScore = Math.max(0, 50 - ((metric.value - 20) * 3)); // 20°超えで3点ずつ減点
+      } else if (metric.value <= 15) {
+        normalizedScore = 100 - ((metric.value - 8) * 6); // 8°超えで6点ずつ減点
+      } else if (metric.value <= 25) {
+        normalizedScore = Math.max(0, 58 - ((metric.value - 15) * 3)); // 15°超えで3点ずつ減点
       } else {
-        normalizedScore = Math.max(0, 20 - ((metric.value - 30) * 1)); // 30°超えで1点ずつ減点
+        normalizedScore = Math.max(0, 28 - ((metric.value - 25) * 1)); // 25°超えで1点ずつ減点
       }
     } else if (metric.label === "腰椎屈曲・伸展角度") {
       // -15°〜+15°の範囲で100点、それを超えると減点
@@ -331,16 +331,16 @@ function addLumbarFlexionExtensionMetric(
     
     // 2. 腰椎過剰運動量（ロックバック動作の実際の評価）
     // ロックバック動作では中立位からの偏差を評価
-    const neutralOffset = 5; // ロックバック動作での自然な中立位オフセット
+    const neutralOffset = 8; // ロックバック動作での自然な中立位オフセット
     const adjustedMovement = Math.max(0, Math.abs(lumbarAngle) - neutralOffset);
     
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
-      adjustedMovement < 10 ? 'normal' :
-      adjustedMovement < 20 ? 'caution' : 'abnormal';
+      adjustedMovement < 8 ? 'normal' :
+      adjustedMovement < 15 ? 'caution' : 'abnormal';
     
     const excessiveDescription = 
-      adjustedMovement < 10 ? '適切な腰椎制御' :
-      adjustedMovement < 20 ? '軽度の過剰運動' : '顕著な過剰運動';
+      adjustedMovement < 8 ? '適切な腰椎制御' :
+      adjustedMovement < 15 ? '軽度の過剰運動' : '顕著な過剰運動';
     
     metrics.push({
       label: "腰椎過剰運動量",
