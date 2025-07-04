@@ -49,8 +49,8 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
         }
       );
       
-      // 座位膝関節伸展テスト以外は腰椎屈曲・伸展角度も含める
-      if (testType !== 'seatedKneeExt') {
+      // 立位股関節屈曲テストのみ腰椎屈曲・伸展角度を含める
+      if (testType === 'standingHipFlex') {
         waitingMetrics.push({
           label: "腰椎屈曲・伸展角度",
           value: 0,
@@ -335,31 +335,33 @@ function addLumbarFlexionExtensionMetric(
       normalRange: "0-10°（適切な制御）"
     });
     
-    // 3. 腰椎屈曲・伸展角度（可動域評価）
-    // 軽度の前傾が正常
-    const flexionOffset = testType === 'rockBack' ? 8 : 5; // テスト別オフセット調整
-    const correctedAngle = lumbarAngle - flexionOffset;
-    let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
-    let angleDescription = '腰椎の前後屈角度（可動域評価）';
-    
-    if (Math.abs(correctedAngle) > 25) {
-      angleStatus = 'abnormal';
-      angleDescription = correctedAngle > 0 ? '過度な腰椎屈曲（前屈）- 可動域評価' : '過度な腰椎伸展（後屈）- 可動域評価';
-    } else if (Math.abs(correctedAngle) > 15) {
-      angleStatus = 'caution';
-      angleDescription = correctedAngle > 0 ? '軽度の腰椎屈曲 - 可動域評価' : '軽度の腰椎伸展 - 可動域評価';
-    } else {
-      angleDescription = '良好な腰椎アライメント（可動域評価）';
+    // 3. 腰椎屈曲・伸展角度（可動域評価）- 立位股関節屈曲テストのみ
+    if (testType === 'standingHipFlex') {
+      // 軽度の前傾が正常
+      const flexionOffset = 5; // 立位股関節屈曲テスト用オフセット
+      const correctedAngle = lumbarAngle - flexionOffset;
+      let angleStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
+      let angleDescription = '腰椎の前後屈角度（可動域評価）';
+      
+      if (Math.abs(correctedAngle) > 25) {
+        angleStatus = 'abnormal';
+        angleDescription = correctedAngle > 0 ? '過度な腰椎屈曲（前屈）- 可動域評価' : '過度な腰椎伸展（後屈）- 可動域評価';
+      } else if (Math.abs(correctedAngle) > 15) {
+        angleStatus = 'caution';
+        angleDescription = correctedAngle > 0 ? '軽度の腰椎屈曲 - 可動域評価' : '軽度の腰椎伸展 - 可動域評価';
+      } else {
+        angleDescription = '良好な腰椎アライメント（可動域評価）';
+      }
+      
+      metrics.push({
+        label: "腰椎屈曲・伸展角度",
+        value: Number(correctedAngle.toFixed(1)),
+        unit: "°",
+        status: angleStatus,
+        description: angleDescription,
+        normalRange: "-15° 〜 +15°（中立位）"
+      });
     }
-    
-    metrics.push({
-      label: "腰椎屈曲・伸展角度",
-      value: Number(correctedAngle.toFixed(1)),
-      unit: "°",
-      status: angleStatus,
-      description: angleDescription,
-      normalRange: "-15° 〜 +15°（中立位）"
-    });
   }
 }
 
