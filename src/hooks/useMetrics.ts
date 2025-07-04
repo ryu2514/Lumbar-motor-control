@@ -3,7 +3,6 @@ import type { Metric, PoseLandmarkerResult, TestType } from '../types';
 import { LANDMARKS } from '../types';
 import {
   radToDeg,
-  calculate2DAngle,
   calculateAngleBetweenVectors,
   calculateVector,
   calculateFilteredLumbarAngle,
@@ -73,14 +72,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           normalRange: "0-90°"
         });
       } else if (testType === 'rockBack') {
-        waitingMetrics.push({
-          label: "股関節-膝関節角度",
-          value: 0,
-          unit: "°",
-          status: 'caution',
-          description: '姿勢データを取得中...',
-          normalRange: "110-140°"
-        });
+        // ロックバックテストでは腰椎関連メトリクスのみ表示
       } else if (testType === 'seatedKneeExt') {
         waitingMetrics.push(
           {
@@ -208,15 +200,6 @@ function calculateOverallScore(metrics: Metric[]): Metric {
         normalizedScore = 100 - ((metric.value - 90) * 2); // 90°超えで減点
       } else {
         normalizedScore = Math.max(0, 40 - ((metric.value - 120) * 2)); // 120°超えでさらに減点
-      }
-    } else if (metric.label === "股関節-膝関節角度") {
-      // 110-140°の範囲で100点
-      if (metric.value >= 110 && metric.value <= 140) {
-        normalizedScore = 100;
-      } else if (metric.value >= 90) {
-        normalizedScore = Math.max(0, 100 - Math.abs(metric.value - 125) * 2);
-      } else {
-        normalizedScore = Math.max(0, 40 - ((90 - metric.value) * 2));
       }
     } else if (metric.label === "座位腰椎制御スコア") {
       // 既に適切にスコア化されているのでそのまま使用
@@ -496,44 +479,12 @@ function calculateStandingHipFlexMetrics(
  */
 function calculateRockBackMetrics(
   _landmarks: any[], // アンダースコア接頭辞で未使用パラメータを明示
-  metrics: Metric[],
-  isLandmarkVisible: (index: number, threshold?: number) => boolean,
-  getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number }
+  _metrics: Metric[], // 未使用パラメータをアンダースコア接頭辞で明示
+  _isLandmarkVisible: (index: number, threshold?: number) => boolean, // 未使用パラメータをアンダースコア接頭辞で明示
+  _getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number } // 未使用パラメータをアンダースコア接頭辞で明示
 ) {
-  if (isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
-      isLandmarkVisible(LANDMARKS.LEFT_KNEE) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_KNEE) &&
-      isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) &&
-      isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER) &&
-      isLandmarkVisible(LANDMARKS.LEFT_ANKLE) &&
-      isLandmarkVisible(LANDMARKS.RIGHT_ANKLE)) {
-    
-    const hipMid = getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP);
-    const kneeMid = getMidpoint(LANDMARKS.LEFT_KNEE, LANDMARKS.RIGHT_KNEE);
-    const ankleMid = getMidpoint(LANDMARKS.LEFT_ANKLE, LANDMARKS.RIGHT_ANKLE);
-    
-    // 股関節-膝関節角度（後方姿勢角度）
-    const hipKneeAngle = radToDeg(calculate2DAngle(
-      { x: ankleMid.x, y: ankleMid.y },
-      { x: kneeMid.x, y: kneeMid.y },
-      { x: hipMid.x, y: hipMid.y }
-    ));
-    
-    metrics.push({
-      label: "股関節-膝関節角度",
-      value: Number(hipKneeAngle.toFixed(1)),
-      unit: "°",
-      status: hipKneeAngle < 90 ? 'abnormal' : hipKneeAngle < 110 ? 'caution' : 'normal',
-      description: "後方への体重移動時の下肢角度",
-      normalRange: "110-140°"
-    });
-
-    // 体幹安定性（削除済み）
-
-    // 腰椎カーブの維持（削除済み）
-    // 骨盤制御（削除済み）
-  }
+  // ロックバックテストでは腰椎安定性スコア、腰椎過剰運動量、腰椎屈曲・伸展角度のみを評価
+  // これらは addLumbarFlexionExtensionMetric 関数で処理されます
 }
 
 /**
