@@ -125,19 +125,48 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
     return filteredData;
   }, [data]);
   
-  // Y軸の動的範囲計算
+  // Y軸の動的範囲計算（安全な範囲制限付き）
   const yAxisDomain = useMemo(() => {
     if (validData.length === 0) return [0, 20];
     
     const angles = validData.map(d => d.lumbarAngle);
-    const maxAngle = Math.max(...angles);
-    const minAngle = Math.min(...angles);
     
-    // 適切な余白を持った範囲を計算
-    const range = maxAngle - minAngle;
-    const padding = Math.max(2, range * 0.1);
+    // 異常値を除外（-50°から100°の範囲外を除外）
+    const filteredAngles = angles.filter(angle => angle >= -50 && angle <= 100);
     
-    return [Math.max(0, minAngle - padding), maxAngle + padding];
+    if (filteredAngles.length === 0) {
+      console.log('⚠️ 全てのデータが異常値範囲、デフォルト範囲を使用');
+      return [0, 20];
+    }
+    
+    const maxAngle = Math.max(...filteredAngles);
+    const minAngle = Math.min(...filteredAngles);
+    
+    console.log('📊 Y軸範囲計算:', {
+      元データ数: angles.length,
+      有効データ数: filteredAngles.length,
+      最小値: minAngle.toFixed(1),
+      最大値: maxAngle.toFixed(1),
+      範囲: (maxAngle - minAngle).toFixed(1)
+    });
+    
+    // 実用的な範囲に調整
+    let yMin = Math.max(0, Math.floor(minAngle) - 2);
+    let yMax = Math.ceil(maxAngle) + 5;
+    
+    // 最小範囲を確保（最低10°の表示範囲）
+    if (yMax - yMin < 10) {
+      const center = (yMax + yMin) / 2;
+      yMin = Math.max(0, center - 5);
+      yMax = center + 5;
+    }
+    
+    // 最大範囲制限（表示を見やすく保つ）
+    if (yMax > 50) {
+      yMax = 50;
+    }
+    
+    return [yMin, yMax];
   }, [validData]);
   
   return (
