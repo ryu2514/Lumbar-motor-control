@@ -5,6 +5,49 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>腰椎運動制御の評価 - Lumbar Motor Control</title>
+    
+    <!-- Security Headers -->
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob:;
+      media-src 'self' blob:;
+      connect-src 'self' https://cdn.jsdelivr.net https://storage.googleapis.com;
+      worker-src 'self' blob:;
+      child-src 'self' blob:;
+      font-src 'self' data:;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      frame-ancestors 'none';
+      upgrade-insecure-requests;
+    ">
+    
+    <!-- Prevent MIME type sniffing -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    
+    <!-- Prevent clickjacking -->
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    
+    <!-- Control referrer information -->
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    
+    <!-- Prevent XSS attacks -->
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    
+    <!-- Permissions Policy -->
+    <meta http-equiv="Permissions-Policy" content="
+      camera=(),
+      microphone=(),
+      geolocation=(),
+      payment=(),
+      usb=(),
+      magnetometer=(),
+      gyroscope=(),
+      accelerometer=()
+    ">
   </head>
   <body>
     <div id="root"></div>

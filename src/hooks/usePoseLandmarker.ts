@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision';
 import type { PoseLandmarkerResult } from '../types';
+import { sanitizeErrorMessage } from '../utils/securityUtils';
 
 /**
  * MediaPipe Pose Landmarker (runtime = mediapipe) を使用するカスタムフック
@@ -80,11 +81,11 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
           
         } catch (error) {
           retryCount++;
-          const errorMsg = error instanceof Error ? error.message : String(error);
-          console.error(`❌ PoseLandmarkerの初期化に失敗しました (試行 ${retryCount}/${maxRetries}):`, errorMsg);
+          const sanitizedError = sanitizeErrorMessage(error);
+          console.error(`❌ PoseLandmarkerの初期化に失敗しました (試行 ${retryCount}/${maxRetries}):`, sanitizedError);
           
           if (retryCount >= maxRetries) {
-            setError(`初期化エラー: ${errorMsg} (${maxRetries}回試行後に失敗)`);
+            setError(`初期化エラー: ${sanitizedError} (${maxRetries}回試行後に失敗)`);
             return;
           }
           

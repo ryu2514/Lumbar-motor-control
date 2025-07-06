@@ -1,4 +1,6 @@
 import type { NormalizedLandmark } from "../types";
+import { validateAngle, validateNormalizedCoordinate } from "./securityUtils";
+import { securityLogger } from "./securityLogger";
 
 /**
  * ラジアンから度に変換
@@ -8,11 +10,25 @@ export const radToDeg = (rad: number) => (rad * 180) / Math.PI;
 /**
  * 2点間のベクトルを計算
  */
-export const calculateVector = (pointA: NormalizedLandmark, pointB: NormalizedLandmark) => ({
-  x: pointB.x - pointA.x,
-  y: pointB.y - pointA.y,
-  z: pointB.z - pointA.z
-});
+export const calculateVector = (pointA: NormalizedLandmark, pointB: NormalizedLandmark) => {
+  // 座標の検証
+  if (!validateNormalizedCoordinate(pointA.x) || !validateNormalizedCoordinate(pointA.y) ||
+      !validateNormalizedCoordinate(pointB.x) || !validateNormalizedCoordinate(pointB.y)) {
+    securityLogger.logEvent(
+      'invalid_data_detected',
+      'medium',
+      'Invalid coordinate data detected in vector calculation',
+      { pointA, pointB }
+    );
+    return { x: 0, y: 0, z: 0 };
+  }
+  
+  return {
+    x: pointB.x - pointA.x,
+    y: pointB.y - pointA.y,
+    z: pointB.z - pointA.z
+  };
+};
 
 /**
  * ベクトルの大きさを計算
@@ -24,10 +40,35 @@ export const calculateMagnitude = (vector: { x: number; y: number; z: number }) 
  * 2つのベクトル間の角度を計算（3D）
  */
 export const calculateAngleBetweenVectors = (v1: any, v2: any) => {
+  // ベクトルの検証
+  if (!v1 || !v2 || typeof v1.x !== 'number' || typeof v1.y !== 'number' || typeof v1.z !== 'number' ||
+      typeof v2.x !== 'number' || typeof v2.y !== 'number' || typeof v2.z !== 'number') {
+    securityLogger.logEvent(
+      'invalid_data_detected',
+      'medium',
+      'Invalid vector data detected in angle calculation',
+      { v1, v2 }
+    );
+    return 0;
+  }
+  
   const dot = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
   const mag1 = calculateMagnitude(v1);
   const mag2 = calculateMagnitude(v2);
-  return Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2 + 1e-6))));
+  const angle = Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2 + 1e-6))));
+  
+  // 角度の検証
+  if (!validateAngle(radToDeg(angle))) {
+    securityLogger.logEvent(
+      'invalid_data_detected',
+      'medium',
+      'Invalid angle calculated',
+      { angle: radToDeg(angle), v1, v2 }
+    );
+    return 0;
+  }
+  
+  return angle;
 };
 
 /**

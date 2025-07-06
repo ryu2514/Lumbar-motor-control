@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import type { ChangeEvent } from 'react';
-import { Upload, AlertCircle, X } from 'lucide-react';
+import { Upload, AlertCircle, X, AlertTriangle } from 'lucide-react';
 import type { TestType } from '../types';
+import { validateVideoFile, sanitizeFileName } from '../utils/securityUtils';
 
 interface VideoUploaderProps {
   onVideoLoad: (file: File) => void;
@@ -15,6 +16,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [warningMessages, setWarningMessages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ドラッグイベントハンドラー
@@ -49,45 +51,40 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
     }
   };
 
-  // 対応するコーデックを持つ動画ファイルかチェック
-  const acceptedTypes = ['video/mp4', 'video/webm', 'video/ogg'];
-  const maxSizeMB = 100; // MB単位の最大ファイルサイズ
-
   // ファイル処理
   const processFile = (file: File) => {
-    // 前回のエラーをクリア
+    // 前回のエラーと警告をクリア
     setErrorMessage(null);
+    setWarningMessages([]);
 
     const fileSizeMB = file.size / (1024 * 1024);
+    
+    // ファイル名をサニタイズ
+    const sanitizedName = sanitizeFileName(file.name);
+    
     console.log('ℹ️ 選択されたファイル:', {
-      name: file.name,
+      name: sanitizedName,
+      originalName: file.name,
       type: file.type,
       size: `${fileSizeMB.toFixed(2)} MB`
     });
 
-    // ファイルタイプのチェック
-    if (!file.type.startsWith('video/')) {
-      const error = '動画ファイルのみアップロード可能です';
-      console.error('❌ ' + error, file.type);
-      setErrorMessage(error);
+    // セキュリティバリデーション
+    const validation = validateVideoFile(file);
+    
+    if (!validation.isValid) {
+      console.error('❌ ファイルバリデーション失敗:', validation.error);
+      setErrorMessage(validation.error!);
       return;
     }
 
-    // ファイルサイズのチェック
-    if (fileSizeMB > maxSizeMB) {
-      const error = `ファイルサイズが大きすぎます。${maxSizeMB}MB以下のファイルを選択してください。`;
-      console.error('❌ ' + error, fileSizeMB.toFixed(2) + 'MB');
-      setErrorMessage(error);
-      return;
+    // 警告がある場合は表示
+    if (validation.warnings && validation.warnings.length > 0) {
+      console.warn('⚠️ ファイル警告:', validation.warnings);
+      setWarningMessages(validation.warnings);
     }
 
-    // 対応フォーマットのチェック
-    if (acceptedTypes.includes(file.type)) {
-      console.log('✅ サポートされたビデオファイル:', file.type);
-    } else {
-      console.warn('⚠️ サポートされていない可能性のあるビデオフォーマット:', file.type);
-      setErrorMessage(`注意: ${file.type} はサポートされていない可能性があります。読み込みに失敗した場合は別の形式をお試しください。`);
-    }
+    console.log('✅ ファイルバリデーション成功');
 
     // すべてのチェックが通った場合、ファイルを処理
     setUploadedFile(file);
@@ -97,6 +94,8 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
   // ファイルの削除
   const clearFile = () => {
     setUploadedFile(null);
+    setErrorMessage(null);
+    setWarningMessages([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -145,11 +144,21 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
             <label htmlFor="video-upload" className="py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 font-medium flex items-center justify-center cursor-pointer transition-colors">
               <Upload size={20} className="mr-2" /> ビデオを選択
             </label>
-            <p className="text-sm text-gray-500 mt-2">支援形式: MP4, WebM, Ogg (最大 {maxSizeMB}MB)</p>
+            <p className="text-sm text-gray-500 mt-2">対応形式: MP4, WebM, Ogg, MOV, AVI (最大 100MB)</p>
             {errorMessage && (
               <div className="flex items-center text-red-600 bg-red-100 p-2 rounded mt-2">
                 <AlertCircle size={16} className="mr-1" />
                 <span className="text-sm">{errorMessage}</span>
+              </div>
+            )}
+            {warningMessages.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {warningMessages.map((warning, index) => (
+                  <div key={index} className="flex items-center text-yellow-600 bg-yellow-100 p-2 rounded">
+                    <AlertTriangle size={16} className="mr-1" />
+                    <span className="text-sm">{warning}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -159,7 +168,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
               <div className="flex items-center">
                 <Upload className="h-6 w-6 text-green-600 mr-2" />
                 <span className="font-medium text-green-700 truncate max-w-xs">
-                  {uploadedFile.name}
+                  {sanitizeFileName(uploadedFile.name)}
                 </span>
               </div>
               <button
