@@ -84,6 +84,14 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
   isRecording,
   duration
 }) => {
+  // グラフコンポーネントでデータを確認
+  console.log('📈 グラフコンポーネント - データ受信:', {
+    データ数: data.length,
+    記録中: isRecording,
+    経過時間: duration,
+    最新データ: data.length > 0 ? data[data.length - 1] : null
+  });
+  
   return (
     <div className="bg-white p-4 rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-4">

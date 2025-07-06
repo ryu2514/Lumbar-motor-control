@@ -470,8 +470,24 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 
   // 腰椎過剰運動量の取得と記録
   useEffect(() => {
+    // 基本的な条件チェック
+    console.log('🔍 グラフ記録条件チェック:', {
+      記録中: timeSeriesData.isRecording,
+      結果存在: !!result,
+      worldLandmarks存在: !!(result?.worldLandmarks),
+      worldLandmarks長さ: result?.worldLandmarks?.length || 0
+    });
+    
     if (timeSeriesData.isRecording && result && result.worldLandmarks && result.worldLandmarks.length > 0) {
       const landmarks = result.worldLandmarks[0];
+      
+      // ランドマーク検出状況をログ
+      console.log('🎯 ランドマーク検出状況:', {
+        左肩: !!landmarks[LANDMARKS.LEFT_SHOULDER],
+        右肩: !!landmarks[LANDMARKS.RIGHT_SHOULDER],
+        左腰: !!landmarks[LANDMARKS.LEFT_HIP],
+        右腰: !!landmarks[LANDMARKS.RIGHT_HIP]
+      });
       
       // 必要なランドマークが検出されている場合のみ計算
       if (landmarks[LANDMARKS.LEFT_SHOULDER] && landmarks[LANDMARKS.RIGHT_SHOULDER] &&
@@ -503,19 +519,29 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 8);
         }
         
+        console.log('✅ データポイント追加前:', {
+          テスト: testType,
+          生腰椎角度: lumbarAngle.toFixed(1),
+          過剰運動量: excessiveMovement.toFixed(1),
+          記録中: timeSeriesData.isRecording,
+          現在データ数: timeSeriesData.data.length
+        });
+        
         addDataPoint(excessiveMovement);
         
-        // デバッグログ（詳細）
-        if (process.env.NODE_ENV === 'development') {
-          console.log('📊 グラフデータ記録:', {
-            テスト: testType,
-            生腰椎角度: lumbarAngle.toFixed(1),
-            過剰運動量: excessiveMovement.toFixed(1),
-            記録中: timeSeriesData.isRecording,
-            データ数: timeSeriesData.data.length
-          });
-        }
+        console.log('✅ データポイント追加後:', {
+          データ数: timeSeriesData.data.length
+        });
+        
+      } else {
+        console.log('❌ ランドマーク不足でスキップ');
       }
+    } else {
+      console.log('❌ 記録条件未満でスキップ:', {
+        記録中: timeSeriesData.isRecording,
+        結果: !!result,
+        worldLandmarks: !!(result?.worldLandmarks?.length)
+      });
     }
   }, [result, timeSeriesData.isRecording, addDataPoint, testType]);
 

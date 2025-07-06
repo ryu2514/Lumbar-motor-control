@@ -48,6 +48,8 @@ export const useTimeSeriesData = () => {
   // データ記録開始
   const startRecording = useCallback(() => {
     const now = Date.now();
+    console.log('🎬 記録開始:', { 開始時刻: new Date(now).toLocaleTimeString() });
+    
     setTimeSeriesData(prev => ({
       ...prev,
       startTime: now,
@@ -59,6 +61,8 @@ export const useTimeSeriesData = () => {
 
   // データ記録停止
   const stopRecording = useCallback(() => {
+    console.log('⏸️ 記録停止');
+    
     setTimeSeriesData(prev => ({
       ...prev,
       isRecording: false
@@ -71,8 +75,19 @@ export const useTimeSeriesData = () => {
 
   // データポイント追加
   const addDataPoint = useCallback((excessiveMovement: number) => {
+    console.log('🔥 addDataPoint呼び出し:', { excessiveMovement });
+    
     setTimeSeriesData(prev => {
-      if (!prev.isRecording || prev.startTime === null) return prev;
+      console.log('🔥 addDataPoint内部状態:', {
+        記録中: prev.isRecording,
+        開始時間: prev.startTime,
+        現在データ数: prev.data.length
+      });
+      
+      if (!prev.isRecording || prev.startTime === null) {
+        console.log('❌ 記録条件不一致でリターン');
+        return prev;
+      }
 
       const now = Date.now();
       const timeElapsed = (now - prev.startTime) / 1000; // 秒に変換
@@ -98,6 +113,13 @@ export const useTimeSeriesData = () => {
       if (updatedData.length > maxDataPoints.current) {
         updatedData.shift(); // 古いデータを削除
       }
+
+      console.log('✅ 新しいデータポイント追加:', {
+        時間: timeElapsed.toFixed(1),
+        角度: excessiveMovement.toFixed(1),
+        状態: status,
+        新データ数: updatedData.length
+      });
 
       return {
         ...prev,
