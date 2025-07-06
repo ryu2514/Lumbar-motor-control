@@ -83,7 +83,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
             unit: "°",
             status: 'caution',
             description: '姿勢データを取得中...',
-            normalRange: "0-8°（適切な制御）"
+            normalRange: "0-5°（適切な制御）"
           }
         );
       }
@@ -456,8 +456,8 @@ function calculateSeatedKneeExtMetrics(
       normalRange: "80-100点（良好な安定性）"
     });
     
-    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 厳格な評価）
-    const excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 2);
+    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 以前の数値レベルに復元）
+    const excessiveMovement = Math.abs(lumbarAngle);
     
     // 座位膝関節伸展テスト用の厳しい基準を維持（7°以上で厳格な評価）
     
@@ -465,10 +465,10 @@ function calculateSeatedKneeExtMetrics(
     let excessiveStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let excessiveDescription = '座位膝伸展時の腰椎制御';
     
-    if (excessiveMovement <= 3) {
+    if (excessiveMovement <= 5) {
       excessiveStatus = 'normal';
       excessiveDescription = '良好な腰椎制御（座位膝伸展）';
-    } else if (excessiveMovement <= 7) {
+    } else if (excessiveMovement <= 10) {
       excessiveStatus = 'caution';
       excessiveDescription = '軽度の過剰運動（座位膝伸展）';
     } else {
@@ -482,7 +482,7 @@ function calculateSeatedKneeExtMetrics(
       unit: "°",
       status: excessiveStatus,
       description: excessiveDescription,
-      normalRange: "0-8°（適切な制御）"
+      normalRange: "0-5°（適切な制御）"
     });
   }
 }
