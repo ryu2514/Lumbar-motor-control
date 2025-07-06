@@ -456,15 +456,14 @@ function calculateSeatedKneeExtMetrics(
       normalRange: "80-100点（良好な安定性）"
     });
     
-    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 屈曲専用検出）
-    // 座位膝関節伸展では腰椎の屈曲（前屈）のみが問題
-    // 垂直に近い状態（lumbarAngle ≈ 0）では低い値、屈曲時に高い値
-    let excessiveMovement = 0;
-    if (lumbarAngle > 2) {
-      // 2°以上の前屈のみを検出（臨床的に意味のある屈曲）
-      excessiveMovement = (lumbarAngle - 2) * 4.0;
-    } else {
-      // 垂直に近い状態や軽度の動きは最小値
+    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 反転計算）
+    // 座位では安静時に大きい値、膝伸展時（代償）に小さい値になるため反転
+    // 基準値から現在値を引いて、代償動作時に高い値になるよう調整
+    const baselineAngle = 10; // 安静時の基準角度（調整可能）
+    let excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 1.0);
+    
+    // 負の値は0にクリップ
+    if (excessiveMovement < 0) {
       excessiveMovement = 0;
     }
     
