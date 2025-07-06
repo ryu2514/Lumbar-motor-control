@@ -80,10 +80,10 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           {
             label: "腰椎過剰運動量",
             value: 0,
-            unit: "°",
+            unit: "点",
             status: 'caution',
             description: '姿勢データを取得中...',
-            normalRange: "0-8°（適切な制御）"
+            normalRange: "85-100点（良好な制御）"
           }
         );
       }
@@ -456,24 +456,46 @@ function calculateSeatedKneeExtMetrics(
       normalRange: "80-100点（良好な安定性）"
     });
     
-    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用）
+    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 厳格な評価）
     const excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 2);
     
-    const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
-      excessiveMovement < 8 ? 'normal' :
-      excessiveMovement < 15 ? 'caution' : 'abnormal';
+    // 座位膝関節伸展テスト専用の厳しい評価基準（7°以上で大幅減点）
+    let excessiveMovementScore = 0;
+    if (excessiveMovement <= 1.5) {
+      excessiveMovementScore = 100; // 完璧な制御
+    } else if (excessiveMovement <= 3) {
+      excessiveMovementScore = 100 - ((excessiveMovement - 1.5) * 10); // 1.5°超えで10点ずつ減点
+    } else if (excessiveMovement <= 5) {
+      excessiveMovementScore = 85 - ((excessiveMovement - 3) * 15); // 3°超えで15点ずつ減点
+    } else if (excessiveMovement <= 7) {
+      excessiveMovementScore = Math.max(0, 55 - ((excessiveMovement - 5) * 25)); // 5°超えで25点ずつ減点
+    } else if (excessiveMovement <= 9) {
+      excessiveMovementScore = Math.max(0, 5 - ((excessiveMovement - 7) * 2)); // 7°超えで非常に厳しい減点
+    } else {
+      excessiveMovementScore = Math.max(0, 1); // 9°超えは1点固定
+    }
     
-    const excessiveDescription = 
-      excessiveMovement < 8 ? '適切な腰椎制御（座位膝伸展）' :
-      excessiveMovement < 15 ? '軽度の過剰運動（座位膝伸展）' : '顕著な過剰運動（座位膝伸展）';
+    let excessiveStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
+    let excessiveDescription = '座位膝伸展時の腰椎制御';
+    
+    if (excessiveMovementScore >= 85) {
+      excessiveStatus = 'normal';
+      excessiveDescription = '良好な腰椎制御（座位膝伸展）';
+    } else if (excessiveMovementScore >= 60) {
+      excessiveStatus = 'caution';
+      excessiveDescription = '軽度の過剰運動（座位膝伸展）';
+    } else {
+      excessiveStatus = 'abnormal';
+      excessiveDescription = '顕著な過剰運動（座位膝伸展）';
+    }
     
     metrics.push({
       label: "腰椎過剰運動量",
-      value: Number(excessiveMovement.toFixed(1)),
-      unit: "°",
+      value: Number(excessiveMovementScore.toFixed(1)),
+      unit: "点",
       status: excessiveStatus,
       description: excessiveDescription,
-      normalRange: "0-8°（適切な制御）"
+      normalRange: "85-100点（良好な制御）"
     });
   }
 }
