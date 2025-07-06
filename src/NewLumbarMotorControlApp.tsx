@@ -8,6 +8,10 @@ import { usePoseLandmarker } from './hooks/usePoseLandmarker';
 import { useMetrics } from './hooks/useMetrics';
 import { useTimeSeriesData } from './hooks/useTimeSeriesData';
 
+// データ保護関連のインポート
+import { memoryProtection } from './utils/memoryProtection';
+import { dataProtection } from './utils/dataProtection';
+
 // 型定義のインポート
 import { LANDMARKS } from './types';
 
@@ -1794,5 +1798,13 @@ export const NewLumbarMotorControlApp: React.FC = () => {
     </div>
   );
 };
+
+// コンポーネントアンマウント時のデータ保護クリーンアップ
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    memoryProtection.destroyAll();
+    dataProtection.cleanup();
+  });
+}
 
 export default NewLumbarMotorControlApp;

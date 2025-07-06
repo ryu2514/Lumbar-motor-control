@@ -3,6 +3,7 @@ import type { ChangeEvent } from 'react';
 import { Upload, AlertCircle, X, AlertTriangle } from 'lucide-react';
 import type { TestType } from '../types';
 import { validateVideoFile, sanitizeFileName } from '../utils/securityUtils';
+import { dataProtection } from '../utils/dataProtection';
 
 interface VideoUploaderProps {
   onVideoLoad: (file: File) => void;
@@ -86,13 +87,27 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
 
     console.log('✅ ファイルバリデーション成功');
 
-    // すべてのチェックが通った場合、ファイルを処理
-    setUploadedFile(file);
-    onVideoLoad(file);
+    // ファイル名を匿名化（UXには影響しない内部処理）
+    const anonymizedName = dataProtection.anonymizeFileName(file.name);
+    
+    // 匿名化されたファイル名で新しいFileオブジェクトを作成
+    const protectedFile = new File([file], anonymizedName, {
+      type: file.type,
+      lastModified: file.lastModified
+    });
+
+    // すべてのチェックが通った場合、保護されたファイルを処理
+    setUploadedFile(protectedFile);
+    onVideoLoad(protectedFile);
   };
 
   // ファイルの削除
   const clearFile = () => {
+    // 現在のファイルデータを安全に消去
+    if (uploadedFile) {
+      dataProtection.secureDelete(uploadedFile);
+    }
+    
     setUploadedFile(null);
     setErrorMessage(null);
     setWarningMessages([]);

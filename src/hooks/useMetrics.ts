@@ -9,6 +9,7 @@ import {
   calculateMidpoint,
   resetAngleFilter
 } from '../utils/geometryUtils';
+import { coordinateAnonymizer } from '../utils/coordinateAnonymizer';
 
 /**
  * ポーズランドマークから評価指標を計算するカスタムフック
@@ -91,7 +92,11 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       return;
     }
 
-    const landmarks = result.worldLandmarks[0];
+    const originalLandmarks = result.worldLandmarks[0];
+    
+    // 座標データの匿名化（プライバシー保護）
+    const landmarks = coordinateAnonymizer.anonymizeLandmarks(originalLandmarks);
+    
     const calculatedMetrics: Metric[] = [];
 
     // 動作履歴を保存（タイミング分析用）

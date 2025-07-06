@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { dataProtection } from '../utils/dataProtection';
 
 export interface TimeSeriesDataPoint {
   timestamp: number;
@@ -92,12 +93,19 @@ export const useTimeSeriesData = () => {
 
   // データクリア
   const clearData = useCallback(() => {
-    setTimeSeriesData({
-      data: [],
-      startTime: null,
-      isRecording: false,
-      duration: 0
+    // 既存データの安全な消去
+    setTimeSeriesData(prev => {
+      if (prev.data.length > 0) {
+        dataProtection.secureDelete(prev.data);
+      }
+      return {
+        data: [],
+        startTime: null,
+        isRecording: false,
+        duration: 0
+      };
     });
+    
     if (intervalRef.current) {
       clearTimeout(intervalRef.current);
       intervalRef.current = null;
@@ -121,11 +129,21 @@ export const useTimeSeriesData = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `lumbar-excessive-movement-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`);
+    // 匿名化されたファイル名を使用
+    const anonymizedFileName = dataProtection.anonymizeFileName(
+      `lumbar-excessive-movement-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`
+    );
+    link.setAttribute('download', anonymizedFileName);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    // セキュアなクリーンアップ
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      dataProtection.secureDelete(blob);
+    }, 100);
   }, [timeSeriesData]);
 
   // 統計データの計算
