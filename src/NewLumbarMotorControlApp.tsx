@@ -494,6 +494,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         const excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - neutralOffset);
         
         addDataPoint(excessiveMovement);
+        
+        // デバッグログ（一時的）
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📊 グラフデータ記録:', {
+            テスト: testType,
+            過剰運動量: excessiveMovement.toFixed(1),
+            記録中: timeSeriesData.isRecording,
+            データ数: timeSeriesData.data.length
+          });
+        }
       }
     }
   }, [result, timeSeriesData.isRecording, addDataPoint, testType]);
@@ -1788,14 +1798,46 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           
           {/* 時系列グラフ表示 */}
           {showChart && (
-            <LumbarExcessiveMovementChartWithStats
-              data={timeSeriesData.data}
-              isRecording={timeSeriesData.isRecording}
-              duration={timeSeriesData.duration}
-              statistics={getStatistics()}
-              onExport={exportData}
-              onClear={clearData}
-            />
+            <div className="space-y-4">
+              {/* 手動記録制御ボタン */}
+              <div className="bg-white rounded-lg shadow-md p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">データ記録制御</h3>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={timeSeriesData.isRecording ? stopRecording : startRecording}
+                      className={`px-4 py-2 rounded-md text-white font-medium ${
+                        timeSeriesData.isRecording 
+                          ? 'bg-red-500 hover:bg-red-600' 
+                          : 'bg-green-500 hover:bg-green-600'
+                      }`}
+                    >
+                      {timeSeriesData.isRecording ? '記録停止' : '記録開始'}
+                    </button>
+                    <button
+                      onClick={clearData}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                    >
+                      データクリア
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-2 text-sm text-gray-600">
+                  記録状態: {timeSeriesData.isRecording ? '記録中' : '停止中'} | 
+                  データ数: {timeSeriesData.data.length}ポイント | 
+                  経過時間: {timeSeriesData.duration.toFixed(1)}秒
+                </div>
+              </div>
+              
+              <LumbarExcessiveMovementChartWithStats
+                data={timeSeriesData.data}
+                isRecording={timeSeriesData.isRecording}
+                duration={timeSeriesData.duration}
+                statistics={getStatistics()}
+                onExport={exportData}
+                onClear={clearData}
+              />
+            </div>
           )}
         </div>
       </div>
