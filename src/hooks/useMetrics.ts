@@ -10,21 +10,7 @@ import {
   resetAngleFilter
 } from '../utils/geometryUtils';
 
-// 条件付きインポート - 動的インポートを使用
-let coordinateAnonymizer: any = {
-  anonymizeLandmarks: (landmarks: any) => landmarks
-};
-
-// 動的インポートでモジュールを読み込み
-if (typeof window !== 'undefined') {
-  import('../utils/coordinateAnonymizer')
-    .then(module => {
-      coordinateAnonymizer = module.coordinateAnonymizer;
-    })
-    .catch(error => {
-      console.warn('Coordinate anonymizer not available:', error);
-    });
-}
+// 座標匿名化機能を無効化（パフォーマンス向上のため）
 
 /**
  * ポーズランドマークから評価指標を計算するカスタムフック
@@ -110,23 +96,15 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
 
     const originalLandmarks = result.worldLandmarks[0];
     
-    // 座標データの匿名化（プライバシー保護）
-    let landmarks = originalLandmarks;
-    try {
-      if (coordinateAnonymizer && coordinateAnonymizer.anonymizeLandmarks) {
-        landmarks = coordinateAnonymizer.anonymizeLandmarks(originalLandmarks);
-      }
-    } catch (error) {
-      console.warn('Coordinate anonymization failed, using original data:', error);
-      landmarks = originalLandmarks;
-    }
+    // 座標データをそのまま使用（パフォーマンス優先）
+    const landmarks = originalLandmarks;
     
     const calculatedMetrics: Metric[] = [];
 
-    // 動作履歴を保存（タイミング分析用）- 頻度を制限してパフォーマンス向上
+    // 動作履歴を保存（タイミング分析用）- 頻度をさらに制限してパフォーマンス向上
     frameCount.current++;
-    if (frameCount.current % 3 === 0) { // 3フレームに1回に削減
-      setMovementHistory(prev => [...prev.slice(-19), landmarks]); // 直近20フレームを維持
+    if (frameCount.current % 5 === 0) { // 5フレームに1回に削減
+      setMovementHistory(prev => [...prev.slice(-9), landmarks]); // 直近10フレームに削減
     }
 
     // ランドマークの可視性チェック（より寛容に）
