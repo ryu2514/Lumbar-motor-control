@@ -193,21 +193,9 @@ export const calculateFilteredLumbarAngle = (
   const rawAngle = calculateLumbarFlexionExtension(shoulderMid, hipMid);
   const filteredAngle = angleFilter.filter(rawAngle);
   
-  // デバッグ用ログ（開発時のみ）
-  if (Math.random() < 0.1) { // 10%の確率でログ出力（デバッグ用）
-    // 体幹ベクトルも表示
-    const torsoVector = {
-      x: shoulderMid.x - hipMid.x,
-      y: shoulderMid.y - hipMid.y,
-      z: shoulderMid.z - hipMid.z
-    };
-    
+  // デバッグ用ログ（開発時のみ、頻度を大幅削減）
+  if (process.env.NODE_ENV === 'development' && Math.random() < 0.0001) { // 0.01%の確率に削減
     console.log('🔍 腰椎角度計算詳細:', {
-      肩座標: { y: shoulderMid.y.toFixed(3), z: shoulderMid.z.toFixed(3) },
-      腰座標: { y: hipMid.y.toFixed(3), z: hipMid.z.toFixed(3) },
-      'Z差(肩-腰)': (shoulderMid.z - hipMid.z).toFixed(3),
-      'Y差(肩-腰)': (shoulderMid.y - hipMid.y).toFixed(3),
-      体幹ベクトル: { y: torsoVector.y.toFixed(3), z: torsoVector.z.toFixed(3) },
       生角度: rawAngle.toFixed(1) + '°',
       フィルター後: filteredAngle.toFixed(1) + '°',
       判定: filteredAngle > 5 ? '🔴屈曲' : filteredAngle < -5 ? '🔵伸展' : '⚪中立'

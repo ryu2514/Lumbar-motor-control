@@ -184,17 +184,17 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
       isVideoLoaded: isVideoLoaded
     });
     
-    // DOM内のすべてのビデオタグの状態を詳細チェック
-    document.querySelectorAll('video').forEach((v, i) => {
-      console.log(`ビデオ要素[${i}]:`, {
-        width: v.videoWidth,
-        height: v.videoHeight,
-        readyState: v.readyState,
-        paused: v.paused,
-        currentSrc: v.currentSrc ? '有り' : 'なし',
-        isActive: v === videoElement
+    // DOM内のすべてのビデオタグの状態を詳細チェック（頻度制限）
+    if (process.env.NODE_ENV === 'development' && performance.now() % 10000 < 100) {
+      document.querySelectorAll('video').forEach((v, i) => {
+        console.log(`ビデオ要素[${i}]:`, {
+          width: v.videoWidth,
+          height: v.videoHeight,
+          readyState: v.readyState,
+          isActive: v === videoElement
+        });
       });
-    });
+    }
 
     const detectFrame = () => {
       try {
@@ -212,16 +212,15 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
         // ビデオが一時停止または終了している場合でも検出を継続（静止画でも姿勢を検出）
         if (videoRef.current.paused || videoRef.current.ended) {
           // 一時停止時でも現在のフレームでポーズ検出を実行
-          if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
+          if (process.env.NODE_ENV === 'development' && performance.now() % 5000 < 50) { // 5秒に1回に削減
             console.log('⏸️ ビデオ一時停止中でもポーズ検出を継続');
           }
         }
         
         // ビデオ状態をデバッグ出力 (正常終了時)
-        if (performance.now() % 1000 < 50) { // 1秒に1回程度ログを出力
+        if (process.env.NODE_ENV === 'development' && performance.now() % 5000 < 50) { // 5秒に1回に削減
           console.log('✅ ビデオフレーム処理中:', { 
             currentTime: videoRef.current.currentTime.toFixed(2),
-            duration: videoRef.current.duration.toFixed(2),
             readyState: videoRef.current.readyState
           });
         }

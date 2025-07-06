@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Metric, PoseLandmarkerResult, TestType } from '../types';
 import { LANDMARKS } from '../types';
 import {
@@ -118,8 +118,12 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
     
     const calculatedMetrics: Metric[] = [];
 
-    // 動作履歴を保存（タイミング分析用）
-    setMovementHistory(prev => [...prev.slice(-19), landmarks]); // 直近20フレームを維持
+    // 動作履歴を保存（タイミング分析用）- 頻度を制限してパフォーマンス向上
+    const frameCount = useRef(0);
+    frameCount.current++;
+    if (frameCount.current % 3 === 0) { // 3フレームに1回に削減
+      setMovementHistory(prev => [...prev.slice(-19), landmarks]); // 直近20フレームを維持
+    }
 
     // ランドマークの可視性チェック（より寛容に）
     const isLandmarkVisible = (index: number, threshold = 0.3) => {
@@ -163,7 +167,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
     }
 
     setMetrics(calculatedMetrics);
-  }, [result, testType, movementHistory]);
+  }, [result, testType]); // movementHistoryを依存配列から除外してパフォーマンス向上
 
   return metrics;
 };
@@ -404,13 +408,13 @@ function addSeatedLumbarControlMetric(
     // 座位腰椎制御スコア（総合的な評価）
     const excessiveMovement = Math.abs(lumbarAngle);
     
-    // デバッグログ（座位膝伸展テスト）
-    console.log('🦵 座位膝伸展テスト - 腰椎角度:', {
-      生角度: lumbarAngle.toFixed(2) + '°',
-      絶対値: excessiveMovement.toFixed(2) + '°',
-      肩座標: shoulderMid,
-      腰座標: hipMid
-    });
+    // デバッグログ（座位膝伸展テスト）- 開発環境のみ、頻度制限
+    if (process.env.NODE_ENV === 'development' && Math.random() < 0.001) {
+      console.log('🦵 座位膝伸展テスト - 腰椎角度:', {
+        生角度: lumbarAngle.toFixed(2) + '°',
+        絶対値: excessiveMovement.toFixed(2) + '°'
+      });
+    }
     
     // 座位膝伸展テスト用の非常に厳しい評価基準（5°以上で大幅減点）
     let controlScore = 0;
