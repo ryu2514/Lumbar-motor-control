@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   Line,
   XAxis,
@@ -84,13 +84,61 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
   isRecording,
   duration
 }) => {
-  // グラフコンポーネントでデータを確認
-  console.log('📈 グラフコンポーネント - データ受信:', {
-    データ数: data.length,
-    記録中: isRecording,
-    経過時間: duration,
-    最新データ: data.length > 0 ? data[data.length - 1] : null
-  });
+  // 強制的な再レンダリング用状態
+  const [forceRender, setForceRender] = useState(0);
+  
+  // データが変更されたときの強制再レンダリング
+  useEffect(() => {
+    if (data.length > 0) {
+      setForceRender(prev => prev + 1);
+    }
+  }, [data.length, data]);
+  
+  // データの有効性チェック
+  const validData = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0) {
+      console.log('❌ グラフ: 無効なデータ');
+      return [];
+    }
+    
+    // データの妥当性をチェック
+    const filteredData = data.filter(point => 
+      point && 
+      typeof point.time === 'number' && 
+      typeof point.lumbarAngle === 'number' && 
+      !isNaN(point.time) && 
+      !isNaN(point.lumbarAngle)
+    );
+    
+    console.log('📈 グラフ有効データ確認:', {
+      元データ数: data.length,
+      有効データ数: filteredData.length,
+      最新5件: filteredData.slice(-5).map(d => ({
+        時間: d.time.toFixed(1),
+        角度: d.lumbarAngle.toFixed(1),
+        状態: d.status
+      })),
+      時間範囲: filteredData.length > 0 ? `${Math.min(...filteredData.map(d => d.time)).toFixed(1)}s - ${Math.max(...filteredData.map(d => d.time)).toFixed(1)}s` : 'なし',
+      角度範囲: filteredData.length > 0 ? `${Math.min(...filteredData.map(d => d.lumbarAngle)).toFixed(1)}° - ${Math.max(...filteredData.map(d => d.lumbarAngle)).toFixed(1)}°` : 'なし'
+    });
+    
+    return filteredData;
+  }, [data]);
+  
+  // Y軸の動的範囲計算
+  const yAxisDomain = useMemo(() => {
+    if (validData.length === 0) return [0, 20];
+    
+    const angles = validData.map(d => d.lumbarAngle);
+    const maxAngle = Math.max(...angles);
+    const minAngle = Math.min(...angles);
+    
+    // 適切な余白を持った範囲を計算
+    const range = maxAngle - minAngle;
+    const padding = Math.max(2, range * 0.1);
+    
+    return [Math.max(0, minAngle - padding), maxAngle + padding];
+  }, [validData]);
   
   return (
     <div className="bg-white p-4 rounded-lg shadow-md">
@@ -107,41 +155,60 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
       </div>
 
       <div style={{ width: '100%', height: '300px' }}>
-        <ResponsiveContainer>
-          <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis 
-              dataKey="time" 
-              type="number"
-              scale="linear"
-              domain={['dataMin', 'dataMax']}
-              tickFormatter={(value) => `${value.toFixed(1)}s`}
-              stroke="#6b7280"
-            />
-            <YAxis 
-              domain={[0, 'dataMax + 5']}
-              tickFormatter={(value) => `${value}°`}
-              stroke="#6b7280"
-            />
-            <Tooltip content={<CustomTooltip />} />
-            
-            {/* 腰椎過剰運動量の基準線（動的調整） */}
-            <ReferenceLine y={2} stroke="#10b981" strokeDasharray="1 1" opacity={0.7} />
-            <ReferenceLine y={5} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.8} />
-            <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="2 2" opacity={0.8} />
-            <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="1 1" opacity={0.3} />
-            
-            {/* メインライン */}
-            <Line 
-              type="monotone" 
-              dataKey="lumbarAngle" 
-              stroke="#3b82f6"
-              strokeWidth={2}
-              dot={<CustomDot />}
-              connectNulls={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+        {validData.length > 0 ? (
+          <ResponsiveContainer key={`container-${forceRender}`}>
+            <ComposedChart 
+              data={validData} 
+              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              key={`chart-${validData.length}-${forceRender}-${validData[validData.length - 1]?.time || 0}`}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis 
+                dataKey="time" 
+                type="number"
+                scale="linear"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={(value) => `${value.toFixed(1)}s`}
+                stroke="#6b7280"
+              />
+              <YAxis 
+                domain={yAxisDomain}
+                tickFormatter={(value) => `${value}°`}
+                stroke="#6b7280"
+              />
+              <Tooltip content={<CustomTooltip />} />
+              
+              {/* 腰椎過剰運動量の基準線（動的調整） */}
+              <ReferenceLine y={2} stroke="#10b981" strokeDasharray="1 1" opacity={0.7} />
+              <ReferenceLine y={5} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.8} />
+              <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="2 2" opacity={0.8} />
+              <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="1 1" opacity={0.3} />
+              
+              {/* メインライン */}
+              <Line 
+                type="monotone" 
+                dataKey="lumbarAngle" 
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={<CustomDot />}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <div className="text-lg">📊</div>
+              <div className="text-sm mt-2">
+                {isRecording ? 'データ収集中...' : 'データがありません'}
+              </div>
+              <div className="text-xs mt-1">
+                有効データ数: {validData.length}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 凡例（調整済み） */}
