@@ -457,7 +457,7 @@ function calculateSeatedKneeExtMetrics(
     });
     
     // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 以前の数値レベルに復元）
-    const excessiveMovement = Math.abs(lumbarAngle);
+    const excessiveMovement = Math.abs(lumbarAngle) * 2.5;
     
     // 座位膝関節伸展テスト用の厳しい基準を維持（7°以上で厳格な評価）
     

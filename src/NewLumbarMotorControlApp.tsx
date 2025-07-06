@@ -512,8 +512,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           // ロックバック: useMetrics.tsと同じ計算式を使用（オフセット12°）
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 12);
         } else if (testType === 'seatedKneeExt') {
-          // 座位膝関節伸展: 以前の数値レベルに復元（オフセットなし）
-          excessiveMovement = Math.abs(lumbarAngle);
+          // 座位膝関節伸展: 以前の数値レベルに復元（係数2.5倍）
+          excessiveMovement = Math.abs(lumbarAngle) * 2.5;
         } else {
           // 立位股関節屈曲: useMetrics.tsと同じ計算式（オフセット8°）
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 8);
