@@ -113,9 +113,8 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
   const [isLogLevel, setIsLogLevel] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // ビデオisVideoLoaded状態が変わったときにデバッグログを出力
+  // ビデオisVideoLoaded状態が変わったときの処理（ログを削除）
   useEffect(() => {
-    console.log(`🎥 ビデオロード状態変更: ${isVideoLoaded ? 'ロード済み' : '未ロード'}`);
     // ログレベルを変更してフレーム処理の再開をトリガー
     if (isVideoLoaded) {
       setIsLogLevel(prev => prev + 1);
@@ -128,18 +127,15 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
     if (!videoElement) return;
 
     const handlePlay = () => {
-      console.log('🎵 ビデオ再生開始 - ポーズ検出ループを再開');
       setIsPlaying(true);
       setIsLogLevel(prev => prev + 1); // フレーム処理を再トリガー
     };
 
     const handlePause = () => {
-      console.log('⏸️ ビデオ一時停止 - ポーズ検出ループを停止');
       setIsPlaying(false);
     };
 
     const handleEnded = () => {
-      console.log('🏁 ビデオ終了 - ポーズ検出ループを停止');
       setIsPlaying(false);
     };
 
@@ -156,35 +152,17 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
   
   // 主要なフレーム処理ループ
   useEffect(() => {
-    if (!isLandmarkerReady) {
-      console.log('ℹ️ Landmarker未初期化のため、フレーム処理をスキップ');
-      return;
-    }
-    
-    // ビデオがロードされていない場合は処理をスキップ
-    if (!isVideoLoaded) {
-      console.log('ℹ️ ビデオがまだロードされていないため、フレーム処理をスキップ');
+    if (!isLandmarkerReady || !isVideoLoaded) {
       return;
     }
     
     // VideoRefが存在するか確認
     const videoElement = videoRef?.current;
     if (!videoElement) {
-      const allVideos = document.querySelectorAll('video');
-      console.log(`ℹ️ ビデオ要素が参照できません。ページ内のビデオ要素数: ${allVideos.length}`);
       return;
     }
     
-    // ビデオのロード状態を確認（デバッグ情報の頻度を大幅削減）
-    if (process.env.NODE_ENV === 'development' && Math.random() < 0.0001) { // 0.01%の確率に削減
-      console.log('🎥 ビデオ状態:', { 
-        readyState: videoElement.readyState,
-        width: videoElement.videoWidth, 
-        height: videoElement.videoHeight,
-        duration: videoElement.duration,
-        isVideoLoaded: isVideoLoaded
-      });
-    }
+    // デバッグ情報を完全削除（パフォーマンス最優先）
 
     const detectFrame = () => {
       try {
@@ -199,17 +177,7 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
           return;
         }
 
-        // デバッグログを大幅削減（パフォーマンス向上）
-        if (process.env.NODE_ENV === 'development' && Math.random() < 0.00001) { // 0.001%の確率に削減
-          if (videoRef.current.paused || videoRef.current.ended) {
-            console.log('⏸️ ビデオ一時停止中でもポーズ検出を継続');
-          } else {
-            console.log('✅ ビデオフレーム処理中:', { 
-              currentTime: videoRef.current.currentTime.toFixed(2),
-              readyState: videoRef.current.readyState
-            });
-          }
-        }
+        // デバッグログを完全削除（パフォーマンス最優先）
         // ビデオの現在時間が変わった場合または一時停止中でもポーズ検出を実行
         const shouldDetect = videoRef.current.currentTime !== lastVideoTimeRef.current || 
                            videoRef.current.paused || 
@@ -229,13 +197,9 @@ export const usePoseLandmarker = (videoRef: React.RefObject<HTMLVideoElement>, i
                 landmarks: detections.landmarks,
                 worldLandmarks: detections.worldLandmarks || []
               });
-              if (process.env.NODE_ENV === 'development' && Math.random() < 0.0001) { // 0.01%の確率に削減
-                console.log('✅ ポーズ検出成功: ランドマーク数', detections.landmarks[0].length);
-              }
+              // デバッグログ削除（パフォーマンス最優先）
             } else {
-              if (process.env.NODE_ENV === 'development' && Math.random() < 0.0001) { // 0.01%の確率に削減
-                console.log('❌ ポーズ検出失敗またはランドマークなし');
-              }
+              // デバッグログ削除（パフォーマンス最優先）
             }
 
             // 最後に処理したビデオ時間を更新（再生中のみ）
