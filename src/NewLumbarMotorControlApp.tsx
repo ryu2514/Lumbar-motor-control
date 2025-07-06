@@ -9,17 +9,20 @@ import { useMetrics } from './hooks/useMetrics';
 import { useTimeSeriesData } from './hooks/useTimeSeriesData';
 
 // データ保護関連のインポート（エラーハンドリング付き）
-let memoryProtection: any;
-let dataProtection: any;
+let memoryProtection: any = { destroyAll: () => {}, shutdown: () => {} };
+let dataProtection: any = { cleanup: () => {} };
 
-try {
-  memoryProtection = require('./utils/memoryProtection').memoryProtection;
-  dataProtection = require('./utils/dataProtection').dataProtection;
-} catch (error) {
-  console.warn('Data protection modules not available:', error);
-  // フォールバックオブジェクト
-  memoryProtection = { destroyAll: () => {}, shutdown: () => {} };
-  dataProtection = { cleanup: () => {} };
+// 動的インポートでモジュールを読み込み
+if (typeof window !== 'undefined') {
+  Promise.all([
+    import('./utils/memoryProtection').catch(() => null),
+    import('./utils/dataProtection').catch(() => null)
+  ]).then(([memoryModule, protectionModule]) => {
+    if (memoryModule) memoryProtection = memoryModule.memoryProtection;
+    if (protectionModule) dataProtection = protectionModule.dataProtection;
+  }).catch(error => {
+    console.warn('Data protection modules not available:', error);
+  });
 }
 
 // 型定義のインポート

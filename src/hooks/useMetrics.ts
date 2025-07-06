@@ -10,16 +10,20 @@ import {
   resetAngleFilter
 } from '../utils/geometryUtils';
 
-// 条件付きインポート
-let coordinateAnonymizer: any;
-try {
-  coordinateAnonymizer = require('../utils/coordinateAnonymizer').coordinateAnonymizer;
-} catch (error) {
-  console.warn('Coordinate anonymizer not available:', error);
-  // フォールバック
-  coordinateAnonymizer = {
-    anonymizeLandmarks: (landmarks: any) => landmarks
-  };
+// 条件付きインポート - 動的インポートを使用
+let coordinateAnonymizer: any = {
+  anonymizeLandmarks: (landmarks: any) => landmarks
+};
+
+// 動的インポートでモジュールを読み込み
+if (typeof window !== 'undefined') {
+  import('../utils/coordinateAnonymizer')
+    .then(module => {
+      coordinateAnonymizer = module.coordinateAnonymizer;
+    })
+    .catch(error => {
+      console.warn('Coordinate anonymizer not available:', error);
+    });
 }
 
 /**
@@ -29,6 +33,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [movementHistory, setMovementHistory] = useState<any[]>([]);
   const [previousTestType, setPreviousTestType] = useState<TestType | null>(null);
+  const frameCount = useRef(0);
 
   useEffect(() => {
     // テスト種類が変更された場合はフィルターをリセット
@@ -119,7 +124,6 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
     const calculatedMetrics: Metric[] = [];
 
     // 動作履歴を保存（タイミング分析用）- 頻度を制限してパフォーマンス向上
-    const frameCount = useRef(0);
     frameCount.current++;
     if (frameCount.current % 3 === 0) { // 3フレームに1回に削減
       setMovementHistory(prev => [...prev.slice(-19), landmarks]); // 直近20フレームを維持

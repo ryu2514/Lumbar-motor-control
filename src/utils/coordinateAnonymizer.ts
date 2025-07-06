@@ -6,14 +6,20 @@
 import type { NormalizedLandmark } from '../types';
 
 // 条件付きインポート（循環依存を回避）
-let securityLogger: any;
-let dataProtection: any;
+let securityLogger: any = { logEvent: () => {} };
+let dataProtection: any = { isInitialized: false };
 
-try {
-  securityLogger = require('./securityLogger').securityLogger;
-  dataProtection = require('./dataProtection').dataProtection;
-} catch (error) {
-  console.warn('Security modules not available:', error);
+// 動的インポートでモジュールを読み込み
+if (typeof window !== 'undefined') {
+  Promise.all([
+    import('./securityLogger').catch(() => null),
+    import('./dataProtection').catch(() => null)
+  ]).then(([loggerModule, protectionModule]) => {
+    if (loggerModule) securityLogger = loggerModule.securityLogger;
+    if (protectionModule) dataProtection = protectionModule.dataProtection;
+  }).catch(error => {
+    console.warn('Security modules not available:', error);
+  });
 }
 
 export interface AnonymizationConfig {

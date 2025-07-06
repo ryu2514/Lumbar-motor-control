@@ -5,16 +5,20 @@ import type { TestType } from '../types';
 import { validateVideoFile, sanitizeFileName } from '../utils/securityUtils';
 
 // 条件付きインポート
-let dataProtection: any;
-try {
-  dataProtection = require('../utils/dataProtection').dataProtection;
-} catch (error) {
-  console.warn('Data protection not available:', error);
-  // フォールバック
-  dataProtection = {
-    anonymizeFileName: (name: string) => name,
-    secureDelete: () => {}
-  };
+let dataProtection: any = {
+  anonymizeFileName: (name: string) => name,
+  secureDelete: () => {}
+};
+
+// 動的インポートでモジュールを読み込み
+if (typeof window !== 'undefined') {
+  import('../utils/dataProtection')
+    .then(module => {
+      dataProtection = module.dataProtection;
+    })
+    .catch(error => {
+      console.warn('Data protection not available:', error);
+    });
 }
 
 interface VideoUploaderProps {

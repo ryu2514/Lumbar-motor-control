@@ -1,16 +1,20 @@
 import { useState, useCallback, useRef } from 'react';
 
 // 条件付きインポート
-let dataProtection: any;
-try {
-  dataProtection = require('../utils/dataProtection').dataProtection;
-} catch (error) {
-  console.warn('Data protection not available:', error);
-  // フォールバック
-  dataProtection = {
-    secureDelete: () => {},
-    anonymizeFileName: (name: string) => name
-  };
+let dataProtection: any = {
+  secureDelete: () => {},
+  anonymizeFileName: (name: string) => name
+};
+
+// 動的インポートでモジュールを読み込み
+if (typeof window !== 'undefined') {
+  import('../utils/dataProtection')
+    .then(module => {
+      dataProtection = module.dataProtection;
+    })
+    .catch(error => {
+      console.warn('Data protection not available:', error);
+    });
 }
 
 export interface TimeSeriesDataPoint {
