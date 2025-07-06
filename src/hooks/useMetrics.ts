@@ -70,20 +70,20 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       } else if (testType === 'seatedKneeExt') {
         waitingMetrics.push(
           {
-            label: "座位腰椎制御スコア",
+            label: "腰椎安定性スコア",
             value: 0,
             unit: "点",
             status: 'caution',
             description: '姿勢データを取得中...',
-            normalRange: "70-100点（良好な制御）"
+            normalRange: "80-100点（良好な安定性）"
           },
           {
-            label: "腰椎アライメント",
+            label: "腰椎過剰運動量",
             value: 0,
             unit: "°",
             status: 'caution',
             description: '姿勢データを取得中...',
-            normalRange: "0-15°"
+            normalRange: "0-8°（適切な制御）"
           }
         );
       }
@@ -405,7 +405,7 @@ function calculateSeatedKneeExtMetrics(
       isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) &&
       isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER)) {
     
-    // 腰椎過剰運動量（座位膝関節伸展テスト用）
+    // 腰椎関連の計算
     const shoulderMidForLumbar = calculateMidpoint(
       landmarks[LANDMARKS.LEFT_SHOULDER],
       landmarks[LANDMARKS.RIGHT_SHOULDER]
@@ -418,7 +418,45 @@ function calculateSeatedKneeExtMetrics(
     
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMidForLumbar, hipMidForLumbar);
     
-    // 座位膝関節伸展テスト用の腰椎過剰運動量（2°オフセット）
+    // 1. 腰椎安定性スコア（座位膝関節伸展テスト用）
+    const lumbarDeviation = Math.abs(lumbarAngle);
+    let lumbarStabilityScore = 0;
+    
+    // 座位膝関節伸展テスト用の安定性評価（より厳しい基準）
+    if (lumbarDeviation <= 10) {
+      lumbarStabilityScore = 100 - (lumbarDeviation * 2); // 10°まで2点ずつ減点
+    } else if (lumbarDeviation <= 20) {
+      lumbarStabilityScore = Math.max(0, 80 - ((lumbarDeviation - 10) * 4)); // 10°超えで4点ずつ減点
+    } else if (lumbarDeviation <= 30) {
+      lumbarStabilityScore = Math.max(0, 40 - ((lumbarDeviation - 20) * 2)); // 20°超えで2点ずつ減点
+    } else {
+      lumbarStabilityScore = Math.max(0, 20 - ((lumbarDeviation - 30) * 1)); // 30°超えで1点ずつ減点
+    }
+    
+    let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
+    let stabilityDescription = '座位膝伸展時の腰椎安定性';
+    
+    if (lumbarStabilityScore >= 80) {
+      stabilityStatus = 'normal';
+      stabilityDescription = '良好な腰椎安定性（座位膝伸展）';
+    } else if (lumbarStabilityScore >= 60) {
+      stabilityStatus = 'caution';
+      stabilityDescription = '軽度の腰椎不安定性（座位膝伸展）';
+    } else {
+      stabilityStatus = 'abnormal';
+      stabilityDescription = '顕著な腰椎不安定性（座位膝伸展）';
+    }
+    
+    metrics.push({
+      label: "腰椎安定性スコア",
+      value: Number(lumbarStabilityScore.toFixed(1)),
+      unit: "点",
+      status: stabilityStatus,
+      description: stabilityDescription,
+      normalRange: "80-100点（良好な安定性）"
+    });
+    
+    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用）
     const excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 2);
     
     const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
