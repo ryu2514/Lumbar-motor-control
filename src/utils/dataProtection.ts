@@ -9,20 +9,37 @@ import { securityLogger } from './securityLogger';
 class DataProtection {
   private encryptionKey: CryptoKey | null = null;
   private isInitialized = false;
-  private sessionId: string;
+  private sessionId: string = '';
 
   constructor() {
-    this.sessionId = this.generateSessionId();
-    this.initializeEncryption();
+    try {
+      this.sessionId = this.generateSessionId();
+      this.initializeEncryption().catch(error => {
+        console.warn('Data protection initialization failed, using fallback mode:', error);
+        this.isInitialized = false;
+      });
+    } catch (error) {
+      console.warn('Data protection constructor failed:', error);
+      this.isInitialized = false;
+    }
   }
 
   /**
    * セッションIDの生成
    */
   private generateSessionId(): string {
-    const array = new Uint8Array(16);
-    crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    try {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        const array = new Uint8Array(16);
+        crypto.getRandomValues(array);
+        return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (error) {
+      console.warn('Crypto API not available, using fallback session ID:', error);
+    }
+    
+    // フォールバック: Math.randomを使用
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
   }
 
   /**
@@ -30,6 +47,13 @@ class DataProtection {
    */
   private async initializeEncryption(): Promise<void> {
     try {
+      // Web Crypto API の可用性をチェック
+      if (typeof crypto === 'undefined' || !crypto.subtle) {
+        console.warn('Web Crypto API not available, data protection disabled');
+        this.isInitialized = false;
+        return;
+      }
+
       // AES-GCM用の鍵を生成
       this.encryptionKey = await crypto.subtle.generateKey(
         {
@@ -41,19 +65,30 @@ class DataProtection {
       );
       
       this.isInitialized = true;
-      securityLogger.logEvent(
-        'file_upload_accepted' as any,
-        'low',
-        'Data protection initialized',
-        { sessionId: this.sessionId }
-      );
+      console.log('Data protection initialized successfully');
+      
+      // securityLoggerが利用可能な場合のみログ
+      if (typeof securityLogger !== 'undefined') {
+        securityLogger.logEvent(
+          'file_upload_accepted' as any,
+          'low',
+          'Data protection initialized',
+          { sessionId: this.sessionId }
+        );
+      }
     } catch (error) {
-      securityLogger.logEvent(
-        'error_occurred',
-        'high',
-        'Failed to initialize data protection',
-        { error: error instanceof Error ? error.message : String(error) }
-      );
+      console.warn('Failed to initialize data protection:', error);
+      this.isInitialized = false;
+      
+      // securityLoggerが利用可能な場合のみログ
+      if (typeof securityLogger !== 'undefined') {
+        securityLogger.logEvent(
+          'error_occurred',
+          'high',
+          'Failed to initialize data protection',
+          { error: error instanceof Error ? error.message : String(error) }
+        );
+      }
     }
   }
 
@@ -170,11 +205,16 @@ class DataProtection {
    * ファイル名の匿名化
    */
   anonymizeFileName(originalName: string): string {
-    const extension = originalName.substring(originalName.lastIndexOf('.'));
-    const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substring(2, 8);
-    
-    return `video_${timestamp}_${random}${extension}`;
+    try {
+      const extension = originalName.includes('.') ? originalName.substring(originalName.lastIndexOf('.')) : '';
+      const timestamp = Date.now().toString(36);
+      const random = Math.random().toString(36).substring(2, 8);
+      
+      return `video_${timestamp}_${random}${extension}`;
+    } catch (error) {
+      console.warn('File name anonymization failed, using original name:', error);
+      return originalName;
+    }
   }
 
   /**

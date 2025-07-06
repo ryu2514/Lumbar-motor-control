@@ -9,7 +9,18 @@ import {
   calculateMidpoint,
   resetAngleFilter
 } from '../utils/geometryUtils';
-import { coordinateAnonymizer } from '../utils/coordinateAnonymizer';
+
+// 条件付きインポート
+let coordinateAnonymizer: any;
+try {
+  coordinateAnonymizer = require('../utils/coordinateAnonymizer').coordinateAnonymizer;
+} catch (error) {
+  console.warn('Coordinate anonymizer not available:', error);
+  // フォールバック
+  coordinateAnonymizer = {
+    anonymizeLandmarks: (landmarks: any) => landmarks
+  };
+}
 
 /**
  * ポーズランドマークから評価指標を計算するカスタムフック
@@ -95,7 +106,15 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
     const originalLandmarks = result.worldLandmarks[0];
     
     // 座標データの匿名化（プライバシー保護）
-    const landmarks = coordinateAnonymizer.anonymizeLandmarks(originalLandmarks);
+    let landmarks = originalLandmarks;
+    try {
+      if (coordinateAnonymizer && coordinateAnonymizer.anonymizeLandmarks) {
+        landmarks = coordinateAnonymizer.anonymizeLandmarks(originalLandmarks);
+      }
+    } catch (error) {
+      console.warn('Coordinate anonymization failed, using original data:', error);
+      landmarks = originalLandmarks;
+    }
     
     const calculatedMetrics: Metric[] = [];
 

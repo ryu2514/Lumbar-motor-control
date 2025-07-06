@@ -1,5 +1,17 @@
 import { useState, useCallback, useRef } from 'react';
-import { dataProtection } from '../utils/dataProtection';
+
+// 条件付きインポート
+let dataProtection: any;
+try {
+  dataProtection = require('../utils/dataProtection').dataProtection;
+} catch (error) {
+  console.warn('Data protection not available:', error);
+  // フォールバック
+  dataProtection = {
+    secureDelete: () => {},
+    anonymizeFileName: (name: string) => name
+  };
+}
 
 export interface TimeSeriesDataPoint {
   timestamp: number;
@@ -95,8 +107,12 @@ export const useTimeSeriesData = () => {
   const clearData = useCallback(() => {
     // 既存データの安全な消去
     setTimeSeriesData(prev => {
-      if (prev.data.length > 0) {
-        dataProtection.secureDelete(prev.data);
+      if (prev.data.length > 0 && dataProtection && dataProtection.secureDelete) {
+        try {
+          dataProtection.secureDelete(prev.data);
+        } catch (error) {
+          console.warn('Secure delete failed:', error);
+        }
       }
       return {
         data: [],
@@ -130,9 +146,14 @@ export const useTimeSeriesData = () => {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     // 匿名化されたファイル名を使用
-    const anonymizedFileName = dataProtection.anonymizeFileName(
-      `lumbar-excessive-movement-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`
-    );
+    let anonymizedFileName = `lumbar-excessive-movement-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+    try {
+      if (dataProtection && dataProtection.anonymizeFileName) {
+        anonymizedFileName = dataProtection.anonymizeFileName(anonymizedFileName);
+      }
+    } catch (error) {
+      console.warn('File name anonymization failed:', error);
+    }
     link.setAttribute('download', anonymizedFileName);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
@@ -142,7 +163,13 @@ export const useTimeSeriesData = () => {
     // セキュアなクリーンアップ
     setTimeout(() => {
       URL.revokeObjectURL(url);
-      dataProtection.secureDelete(blob);
+      if (dataProtection && dataProtection.secureDelete) {
+        try {
+          dataProtection.secureDelete(blob);
+        } catch (error) {
+          console.warn('Secure blob delete failed:', error);
+        }
+      }
     }, 100);
   }, [timeSeriesData]);
 

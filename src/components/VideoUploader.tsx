@@ -3,7 +3,19 @@ import type { ChangeEvent } from 'react';
 import { Upload, AlertCircle, X, AlertTriangle } from 'lucide-react';
 import type { TestType } from '../types';
 import { validateVideoFile, sanitizeFileName } from '../utils/securityUtils';
-import { dataProtection } from '../utils/dataProtection';
+
+// 条件付きインポート
+let dataProtection: any;
+try {
+  dataProtection = require('../utils/dataProtection').dataProtection;
+} catch (error) {
+  console.warn('Data protection not available:', error);
+  // フォールバック
+  dataProtection = {
+    anonymizeFileName: (name: string) => name,
+    secureDelete: () => {}
+  };
+}
 
 interface VideoUploaderProps {
   onVideoLoad: (file: File) => void;
@@ -88,7 +100,14 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
     console.log('✅ ファイルバリデーション成功');
 
     // ファイル名を匿名化（UXには影響しない内部処理）
-    const anonymizedName = dataProtection.anonymizeFileName(file.name);
+    let anonymizedName = file.name;
+    try {
+      if (dataProtection && dataProtection.anonymizeFileName) {
+        anonymizedName = dataProtection.anonymizeFileName(file.name);
+      }
+    } catch (error) {
+      console.warn('File name anonymization failed:', error);
+    }
     
     // 匿名化されたファイル名で新しいFileオブジェクトを作成
     const protectedFile = new File([file], anonymizedName, {
@@ -104,8 +123,12 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onVideoLoad, testType }) 
   // ファイルの削除
   const clearFile = () => {
     // 現在のファイルデータを安全に消去
-    if (uploadedFile) {
-      dataProtection.secureDelete(uploadedFile);
+    if (uploadedFile && dataProtection && dataProtection.secureDelete) {
+      try {
+        dataProtection.secureDelete(uploadedFile);
+      } catch (error) {
+        console.warn('Secure file delete failed:', error);
+      }
     }
     
     setUploadedFile(null);

@@ -3,9 +3,18 @@
  * MediaPipe pose landmarksの個人識別可能な情報を除去
  */
 
-import { securityLogger } from './securityLogger';
-import { dataProtection } from './dataProtection';
 import type { NormalizedLandmark } from '../types';
+
+// 条件付きインポート（循環依存を回避）
+let securityLogger: any;
+let dataProtection: any;
+
+try {
+  securityLogger = require('./securityLogger').securityLogger;
+  dataProtection = require('./dataProtection').dataProtection;
+} catch (error) {
+  console.warn('Security modules not available:', error);
+}
 
 export interface AnonymizationConfig {
   removePersonalLandmarks: boolean; // 顔・手など個人識別可能な点を除去
@@ -84,24 +93,28 @@ class CoordinateAnonymizer {
       // フレーム履歴の更新
       this.updateFrameHistory(processed);
 
-      securityLogger.logEvent(
-        'file_upload_accepted' as any,
-        'low',
-        'Landmark data anonymized',
-        {
-          originalCount: landmarks.length,
-          processedCount: processed.length,
-          config: activeConfig
-        }
-      );
+      if (securityLogger) {
+        securityLogger.logEvent(
+          'file_upload_accepted' as any,
+          'low',
+          'Landmark data anonymized',
+          {
+            originalCount: landmarks.length,
+            processedCount: processed.length,
+            config: activeConfig
+          }
+        );
+      }
 
     } catch (error) {
-      securityLogger.logEvent(
-        'error_occurred',
-        'medium',
-        'Landmark anonymization failed',
-        { error: error instanceof Error ? error.message : String(error) }
-      );
+      if (securityLogger) {
+        securityLogger.logEvent(
+          'error_occurred',
+          'medium',
+          'Landmark anonymization failed',
+          { error: error instanceof Error ? error.message : String(error) }
+        );
+      }
       
       // エラー時は最小限の処理のみ実行
       processed = this.essentialAnonymization(landmarks);
@@ -231,7 +244,7 @@ class CoordinateAnonymizer {
     
     if (this.previousFrames.length > this.maxFrameHistory) {
       const removed = this.previousFrames.shift();
-      if (removed) {
+      if (removed && dataProtection) {
         dataProtection.secureDelete(removed);
       }
     }
@@ -261,21 +274,25 @@ class CoordinateAnonymizer {
   updateConfig(newConfig: Partial<AnonymizationConfig>): void {
     this.config = { ...this.config, ...newConfig };
     
-    securityLogger.logEvent(
-      'file_upload_accepted' as any,
-      'low',
-      'Anonymization config updated',
-      { config: this.config }
-    );
+    if (securityLogger) {
+      securityLogger.logEvent(
+        'file_upload_accepted' as any,
+        'low',
+        'Anonymization config updated',
+        { config: this.config }
+      );
+    }
   }
 
   /**
    * フレーム履歴のクリア
    */
   clearHistory(): void {
-    this.previousFrames.forEach(frame => {
-      dataProtection.secureDelete(frame);
-    });
+    if (dataProtection) {
+      this.previousFrames.forEach(frame => {
+        dataProtection.secureDelete(frame);
+      });
+    }
     this.previousFrames = [];
   }
 

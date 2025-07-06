@@ -8,9 +8,19 @@ import { usePoseLandmarker } from './hooks/usePoseLandmarker';
 import { useMetrics } from './hooks/useMetrics';
 import { useTimeSeriesData } from './hooks/useTimeSeriesData';
 
-// データ保護関連のインポート
-import { memoryProtection } from './utils/memoryProtection';
-import { dataProtection } from './utils/dataProtection';
+// データ保護関連のインポート（エラーハンドリング付き）
+let memoryProtection: any;
+let dataProtection: any;
+
+try {
+  memoryProtection = require('./utils/memoryProtection').memoryProtection;
+  dataProtection = require('./utils/dataProtection').dataProtection;
+} catch (error) {
+  console.warn('Data protection modules not available:', error);
+  // フォールバックオブジェクト
+  memoryProtection = { destroyAll: () => {}, shutdown: () => {} };
+  dataProtection = { cleanup: () => {} };
+}
 
 // 型定義のインポート
 import { LANDMARKS } from './types';
@@ -1802,8 +1812,16 @@ export const NewLumbarMotorControlApp: React.FC = () => {
 // コンポーネントアンマウント時のデータ保護クリーンアップ
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {
-    memoryProtection.destroyAll();
-    dataProtection.cleanup();
+    try {
+      if (memoryProtection && memoryProtection.destroyAll) {
+        memoryProtection.destroyAll();
+      }
+      if (dataProtection && dataProtection.cleanup) {
+        dataProtection.cleanup();
+      }
+    } catch (error) {
+      console.warn('Cleanup failed:', error);
+    }
   });
 }
 
