@@ -2,9 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import type { Metric, PoseLandmarkerResult, TestType } from '../types';
 import { LANDMARKS } from '../types';
 import {
-  radToDeg,
-  calculateAngleBetweenVectors,
-  calculateVector,
   calculateFilteredLumbarAngle,
   calculateMidpoint,
   resetAngleFilter
@@ -134,8 +131,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
           calculateRockBackMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint);
           break;
         case "seatedKneeExt":
-          // 座位膝関節伸展テスト：シンプルな腰椎制御評価
-          addSeatedLumbarControlMetric(landmarks, calculatedMetrics, isLandmarkVisible);
+          // 座位膝関節伸展テスト：腰椎過剰運動量評価
           calculateSeatedKneeExtMetrics(landmarks, calculatedMetrics, isLandmarkVisible, getMidpoint, movementHistory);
           break;
         default:
@@ -366,79 +362,6 @@ function addLumbarFlexionExtensionMetric(
   }
 }
 
-/**
- * 座位膝関節伸展テスト用のシンプルな腰椎制御評価
- */
-function addSeatedLumbarControlMetric(
-  landmarks: Array<{x: number, y: number, z: number}>,
-  metrics: Metric[],
-  isLandmarkVisible: (index: number) => boolean
-) {
-  // 必要なランドマークが見える場合のみ処理
-  if (isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER) &&
-      isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_HIP)) {
-    
-    // 肩、腰の中心点を計算
-    const shoulderMid = calculateMidpoint(
-      landmarks[LANDMARKS.LEFT_SHOULDER],
-      landmarks[LANDMARKS.RIGHT_SHOULDER]
-    );
-    
-    const hipMid = calculateMidpoint(
-      landmarks[LANDMARKS.LEFT_HIP],
-      landmarks[LANDMARKS.RIGHT_HIP]
-    );
-    
-    // 腰椎角度を計算
-    const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
-    
-    // 座位腰椎制御スコア（総合的な評価）
-    const excessiveMovement = Math.abs(lumbarAngle);
-    
-    // デバッグログを完全無効化（パフォーマンス最優先）
-    
-    // 座位膝伸展テスト用の非常に厳しい評価基準（5°以上で大幅減点）
-    let controlScore = 0;
-    if (excessiveMovement <= 1.5) {
-      controlScore = 100; // 完璧な制御（範囲をさらに狭める）
-    } else if (excessiveMovement <= 3) {
-      controlScore = 100 - ((excessiveMovement - 1.5) * 10); // 1.5°超えで10点ずつ減点
-    } else if (excessiveMovement <= 5) {
-      controlScore = 85 - ((excessiveMovement - 3) * 15); // 3°超えで15点ずつ減点
-    } else if (excessiveMovement <= 7) {
-      controlScore = Math.max(0, 55 - ((excessiveMovement - 5) * 25)); // 5°超えで25点ずつ減点（非常に厳しく）
-    } else if (excessiveMovement <= 9) {
-      controlScore = Math.max(0, 5 - ((excessiveMovement - 7) * 2)); // 7°超えで2点ずつ減点
-    } else {
-      controlScore = Math.max(0, 1); // 9°超えは1点固定
-    }
-    
-    let status: 'normal' | 'caution' | 'abnormal' = 'normal';
-    let description = '座位膝伸展時の腰椎制御';
-    
-    if (controlScore >= 85) {
-      status = 'normal';
-      description = '良好な腰椎制御';
-    } else if (controlScore >= 70) {
-      status = 'caution';
-      description = '腰椎制御にやや課題';
-    } else {
-      status = 'abnormal';
-      description = '腰椎制御に問題';
-    }
-    
-    metrics.push({
-      label: "座位腰椎制御スコア",
-      value: Number(controlScore.toFixed(1)),
-      unit: "点",
-      status: status,
-      description: description,
-      normalRange: "85-100点（良好な制御）"
-    });
-  }
-}
 
 /**
  * 立位股関節屈曲テストの評価指標を計算
@@ -471,43 +394,48 @@ function calculateRockBackMetrics(
  * 座位膝関節伸展テストの評価指標を計算
  */
 function calculateSeatedKneeExtMetrics(
-  _landmarks: any[], // 未使用パラメータをアンダースコア接頭辞で明示
+  landmarks: any[], // ランドマークデータ
   metrics: Metric[],
   isLandmarkVisible: (index: number, threshold?: number) => boolean,
-  getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number },
+  _getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number }, // 未使用パラメータ
   _movementHistory: any[] // 未使用パラメータをアンダースコア接頭辞で明示
 ) {
   if (isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
       isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
-      isLandmarkVisible(LANDMARKS.LEFT_KNEE) && 
-      isLandmarkVisible(LANDMARKS.RIGHT_KNEE) &&
-      isLandmarkVisible(LANDMARKS.LEFT_ANKLE) &&
-      isLandmarkVisible(LANDMARKS.RIGHT_ANKLE) &&
       isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) &&
       isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER)) {
     
-    // 中点を計算
-    const hipMid = getMidpoint(LANDMARKS.LEFT_HIP, LANDMARKS.RIGHT_HIP);
-    const shoulderMid = getMidpoint(LANDMARKS.LEFT_SHOULDER, LANDMARKS.RIGHT_SHOULDER);
+    // 腰椎過剰運動量（座位膝関節伸展テスト用）
+    const shoulderMidForLumbar = calculateMidpoint(
+      landmarks[LANDMARKS.LEFT_SHOULDER],
+      landmarks[LANDMARKS.RIGHT_SHOULDER]
+    );
     
-    // 骨盤安定性（削除済み）
-
-    // 腰椎のアライメント維持
-    const trunkVector = calculateVector(hipMid, shoulderMid);
-    const verticalRef = { x: 0, y: -1, z: 0 };
-    const lumbarAngle = radToDeg(calculateAngleBetweenVectors(trunkVector, verticalRef));
+    const hipMidForLumbar = calculateMidpoint(
+      landmarks[LANDMARKS.LEFT_HIP],
+      landmarks[LANDMARKS.RIGHT_HIP]
+    );
+    
+    const lumbarAngle = calculateFilteredLumbarAngle(shoulderMidForLumbar, hipMidForLumbar);
+    
+    // 座位膝関節伸展テスト用の腰椎過剰運動量（2°オフセット）
+    const excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 2);
+    
+    const excessiveStatus: 'normal' | 'caution' | 'abnormal' = 
+      excessiveMovement < 8 ? 'normal' :
+      excessiveMovement < 15 ? 'caution' : 'abnormal';
+    
+    const excessiveDescription = 
+      excessiveMovement < 8 ? '適切な腰椎制御（座位膝伸展）' :
+      excessiveMovement < 15 ? '軽度の過剰運動（座位膝伸展）' : '顕著な過剰運動（座位膝伸展）';
     
     metrics.push({
-      label: "腰椎アライメント",
-      value: Number(lumbarAngle.toFixed(1)),
+      label: "腰椎過剰運動量",
+      value: Number(excessiveMovement.toFixed(1)),
       unit: "°",
-      status: lumbarAngle > 30 ? 'abnormal' : lumbarAngle > 15 ? 'caution' : 'normal',
-      description: "膝伸展時の腰椎前弯維持",
-      normalRange: "0-15°"
+      status: excessiveStatus,
+      description: excessiveDescription,
+      normalRange: "0-8°（適切な制御）"
     });
-
-    // 左右対称性（削除済み）
-
-    // 代償動作（削除済み）
   }
 }
