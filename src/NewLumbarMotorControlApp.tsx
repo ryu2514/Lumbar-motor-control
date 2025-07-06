@@ -489,16 +489,27 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         
         const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
         
-        // テスト別のオフセット調整で腰椎過剰運動量を計算
-        const neutralOffset = testType === 'rockBack' ? 12 : 8;
-        const excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - neutralOffset);
+        // テスト別の腰椎過剰運動量を計算（グラフ用に調整）
+        let excessiveMovement = 0;
+        
+        if (testType === 'rockBack') {
+          // ロックバック: 腰椎角度の絶対値をそのまま使用（より敏感な検出）
+          excessiveMovement = Math.abs(lumbarAngle);
+        } else if (testType === 'seatedKneeExt') {
+          // 座位膝関節伸展: 小さなオフセットで敏感に検出
+          excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 2);
+        } else {
+          // 立位股関節屈曲: 従来通り
+          excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 8);
+        }
         
         addDataPoint(excessiveMovement);
         
-        // デバッグログ（一時的）
+        // デバッグログ（詳細）
         if (process.env.NODE_ENV === 'development') {
           console.log('📊 グラフデータ記録:', {
             テスト: testType,
+            生腰椎角度: lumbarAngle.toFixed(1),
             過剰運動量: excessiveMovement.toFixed(1),
             記録中: timeSeriesData.isRecording,
             データ数: timeSeriesData.data.length

@@ -77,14 +77,14 @@ export const useTimeSeriesData = () => {
       const now = Date.now();
       const timeElapsed = (now - prev.startTime) / 1000; // 秒に変換
 
-      // 腰椎過剰運動量による状態判定
+      // 腰椎過剰運動量による状態判定（調整済み基準）
       let status: 'normal' | 'caution' | 'abnormal' = 'normal';
-      if (excessiveMovement >= 15) {
-        status = 'abnormal';  // 15°以上で異常
-      } else if (excessiveMovement >= 8) {
-        status = 'caution';   // 8-15°で注意
+      if (excessiveMovement >= 5) {
+        status = 'abnormal';  // 5°以上で異常
+      } else if (excessiveMovement >= 2) {
+        status = 'caution';   // 2-5°で注意
       }
-      // 0-8°で正常
+      // 0-2°で正常
 
       const newDataPoint: TimeSeriesDataPoint = {
         timestamp: now,

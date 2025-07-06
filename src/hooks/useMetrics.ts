@@ -149,11 +149,11 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       console.error("Metrics calculation error:", error);
     }
 
-    // 座位膝関節伸展テストでは更新頻度をさらに制限（チラつき防止）
+    // 座位膝関節伸展テストの更新頻度制限を一時的に無効化（グラフ問題調査）
     updateCount.current++;
-    if (testType === 'seatedKneeExt' && updateCount.current % 3 !== 0) {
-      return; // 3回に1回のみ更新
-    }
+    // if (testType === 'seatedKneeExt' && updateCount.current % 3 !== 0) {
+    //   return; // 3回に1回のみ更新
+    // }
     
     setMetrics(calculatedMetrics);
   }, [result, testType]); // movementHistoryを依存配列から除外してパフォーマンス向上
