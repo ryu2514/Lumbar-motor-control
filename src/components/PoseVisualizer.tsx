@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo, useCallback } from 'react';
 import type { PoseLandmarkerResult } from '../types';
 
 // 体の接続部位の定義
@@ -38,18 +38,34 @@ interface PoseVisualizerProps {
  */
 const PoseVisualizer: React.FC<PoseVisualizerProps> = ({ result, videoRef, testType }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lastDrawTimeRef = useRef<number>(0);
+  const animationFrameRef = useRef<number>();
 
-  // ランドマークの色を決定する
-  const getLandmarkColor = (index: number): string => {
+  // ランドマークの色を決定する（メモ化で最適化）
+  const getLandmarkColor = useCallback((index: number): string => {
     if ([23, 24].includes(index)) return LANDMARK_COLORS.hip;
     if ([25, 26].includes(index)) return LANDMARK_COLORS.knee;
     if ([27, 28].includes(index)) return LANDMARK_COLORS.ankle;
     if ([11, 12].includes(index)) return LANDMARK_COLORS.shoulder;
     return LANDMARK_COLORS.default;
-  };
+  }, []);
 
-  // ポーズの可視化を描画
-  useEffect(() => {
+  // 重要なランドマークのインデックスをメモ化
+  const highlightIndices = useMemo(() => {
+    switch (testType) {
+      case 'standingHipFlex':
+        return [23, 24, 11, 12, 25, 26];
+      case 'rockBack':
+        return [11, 12, 23, 24, 25, 26, 27, 28];
+      case 'seatedKneeExt':
+        return [23, 24, 25, 26, 27, 28, 29, 30];
+      default:
+        return [];
+    }
+  }, [testType]);
+
+  // 描画関数をメモ化して最適化
+  const drawPose = useCallback(() => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
@@ -57,38 +73,31 @@ const PoseVisualizer: React.FC<PoseVisualizerProps> = ({ result, videoRef, testT
       return;
     }
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return; // コンテキストが取得できない場合は早期リターン
+    // フレームレート制限（30FPS）- チラつき防止
+    const now = performance.now();
+    if (now - lastDrawTimeRef.current < 33) { // 33ms = 30FPS
+      return;
+    }
+    lastDrawTimeRef.current = now;
 
-    // キャンバスのサイズをビデオに合わせる
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // キャンバスサイズが変更された場合のみ更新
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
 
     // キャンバスをクリア
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const landmarks = result.landmarks[0];
-    const highlightIndices: number[] = [];
 
-    // 各テストタイプに応じて重要なランドマークを設定
-    switch (testType) {
-      case 'standingHipFlex':
-        // 股関節屈曲テスト：骨盤、腰椎、膝のランドマークを強調
-        highlightIndices.push(23, 24, 11, 12, 25, 26);
-        break;
-      case 'rockBack':
-        // ロックバックテスト：脊椎、骨盤、膝のランドマークを強調
-        highlightIndices.push(11, 12, 23, 24, 25, 26, 27, 28);
-        break;
-      case 'seatedKneeExt':
-        // 座位膝伸展テスト：膝、骨盤、足首のランドマークを強調
-        highlightIndices.push(23, 24, 25, 26, 27, 28, 29, 30);
-        break;
-    }
-
-    // 接続線を描画
+    // 接続線を一括描画（パフォーマンス向上）
     ctx.lineWidth = 2;
     ctx.strokeStyle = CONNECTION_COLOR;
+    ctx.beginPath();
 
     for (const [start, end] of POSE_CONNECTIONS) {
       if (landmarks[start] && landmarks[end]) {
@@ -96,35 +105,23 @@ const PoseVisualizer: React.FC<PoseVisualizerProps> = ({ result, videoRef, testT
         const endLandmark = landmarks[end];
 
         if ((startLandmark.visibility || 0) > 0.5 && (endLandmark.visibility || 0) > 0.5) {
-          ctx.beginPath();
           ctx.moveTo(startLandmark.x * canvas.width, startLandmark.y * canvas.height);
           ctx.lineTo(endLandmark.x * canvas.width, endLandmark.y * canvas.height);
-          ctx.stroke();
         }
       }
     }
+    ctx.stroke();
 
-    // ランドマークを描画
+    // ランドマークを描画（重要なもののみ表示でパフォーマンス向上）
     landmarks.forEach((landmark, index) => {
-      if ((landmark.visibility || 0) > 0.5) {
+      if ((landmark.visibility || 0) > 0.5 && highlightIndices.includes(index)) {
         const x = landmark.x * canvas.width;
         const y = landmark.y * canvas.height;
         
-        // 基本サイズと重要なランドマークの場合は大きく表示
-        const radius = highlightIndices.includes(index) ? 8 : 4;
-        
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.arc(x, y, 6, 0, 2 * Math.PI);
         ctx.fillStyle = getLandmarkColor(index);
         ctx.fill();
-        
-        // インデックス番号を表示（開発時に有効化する場合はコメントを外す）
-        if (false) { // デバッグ時にtrueに変更
-          // 非Nullアサーション演算子の使用（ctxはnullではないとコンパイラに保証）
-          ctx!.fillStyle = 'white';
-          ctx!.font = '12px Arial';
-          ctx!.fillText(index.toString(), x + 10, y - 10);
-        }
       }
     });
 
@@ -170,7 +167,22 @@ const PoseVisualizer: React.FC<PoseVisualizerProps> = ({ result, videoRef, testT
       ctx.stroke();
     }
 
-  }, [result, videoRef, testType]);
+  }, [result, videoRef, testType, highlightIndices, getLandmarkColor]);
+
+  // useEffectで描画をスケジュール
+  useEffect(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    animationFrameRef.current = requestAnimationFrame(drawPose);
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [drawPose]);
 
   return (
     <div className="absolute inset-0 pointer-events-none">

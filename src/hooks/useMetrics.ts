@@ -20,6 +20,7 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
   const [movementHistory, setMovementHistory] = useState<any[]>([]);
   const [previousTestType, setPreviousTestType] = useState<TestType | null>(null);
   const frameCount = useRef(0);
+  const updateCount = useRef(0);
 
   useEffect(() => {
     // テスト種類が変更された場合はフィルターをリセット
@@ -148,6 +149,12 @@ export const useMetrics = (result: PoseLandmarkerResult | null, testType: TestTy
       console.error("Metrics calculation error:", error);
     }
 
+    // 座位膝関節伸展テストでは更新頻度をさらに制限（チラつき防止）
+    updateCount.current++;
+    if (testType === 'seatedKneeExt' && updateCount.current % 3 !== 0) {
+      return; // 3回に1回のみ更新
+    }
+    
     setMetrics(calculatedMetrics);
   }, [result, testType]); // movementHistoryを依存配列から除外してパフォーマンス向上
 
@@ -390,13 +397,7 @@ function addSeatedLumbarControlMetric(
     // 座位腰椎制御スコア（総合的な評価）
     const excessiveMovement = Math.abs(lumbarAngle);
     
-    // デバッグログ（座位膝伸展テスト）- 開発環境のみ、頻度制限
-    if (process.env.NODE_ENV === 'development' && Math.random() < 0.001) {
-      console.log('🦵 座位膝伸展テスト - 腰椎角度:', {
-        生角度: lumbarAngle.toFixed(2) + '°',
-        絶対値: excessiveMovement.toFixed(2) + '°'
-      });
-    }
+    // デバッグログを完全無効化（パフォーマンス最優先）
     
     // 座位膝伸展テスト用の非常に厳しい評価基準（5°以上で大幅減点）
     let controlScore = 0;
