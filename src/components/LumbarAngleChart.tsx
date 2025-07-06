@@ -207,10 +207,9 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
               />
               <Tooltip content={<CustomTooltip />} />
               
-              {/* 腰椎過剰運動量の基準線（動的調整） */}
-              <ReferenceLine y={2} stroke="#10b981" strokeDasharray="1 1" opacity={0.7} />
-              <ReferenceLine y={5} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.8} />
-              <ReferenceLine y={10} stroke="#ef4444" strokeDasharray="2 2" opacity={0.8} />
+              {/* 腰椎過剰運動量の基準線（メトリクス基準と統一） */}
+              <ReferenceLine y={8} stroke="#10b981" strokeDasharray="1 1" opacity={0.7} />
+              <ReferenceLine y={15} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.8} />
               <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="1 1" opacity={0.3} />
               
               {/* メインライン */}
@@ -244,15 +243,15 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
       <div className="mt-4 flex flex-wrap justify-center space-x-6 text-xs">
         <div className="flex items-center">
           <div className="w-3 h-3 bg-green-500 rounded-full mr-1"></div>
-          <span>正常 (0-2°)</span>
+          <span>正常 (0-8°)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-3 bg-yellow-500 rounded-full mr-1"></div>
-          <span>注意 (2-5°)</span>
+          <span>注意 (8-15°)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-3 bg-red-500 rounded-full mr-1"></div>
-          <span>異常 (5°以上)</span>
+          <span>異常 (15°以上)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-0.5 bg-gray-500 mr-1"></div>
@@ -260,15 +259,11 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
         </div>
         <div className="flex items-center">
           <div className="w-3 h-0.5 bg-green-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
-          <span>正常上限 (2°)</span>
+          <span>正常上限 (8°)</span>
         </div>
         <div className="flex items-center">
           <div className="w-3 h-0.5 bg-yellow-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
-          <span>注意境界 (5°)</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-3 h-0.5 bg-red-500 mr-1" style={{ borderTop: '1px dashed' }}></div>
-          <span>異常境界 (10°)</span>
+          <span>注意境界 (15°)</span>
         </div>
       </div>
       
