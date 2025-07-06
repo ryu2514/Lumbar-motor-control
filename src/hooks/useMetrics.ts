@@ -460,11 +460,11 @@ function calculateSeatedKneeExtMetrics(
     // 座位膝関節伸展では腰椎の屈曲（前屈）のみが問題
     // 垂直に近い状態（lumbarAngle ≈ 0）では低い値、屈曲時に高い値
     let excessiveMovement = 0;
-    if (lumbarAngle > 3) {
-      // 3°以上の前屈のみを検出（より厳格な閾値で良い姿勢を保護）
-      excessiveMovement = (lumbarAngle - 3) * 3.5;
+    if (lumbarAngle > 2) {
+      // 2°以上の前屈のみを検出（臨床的に意味のある屈曲）
+      excessiveMovement = (lumbarAngle - 2) * 4.0;
     } else {
-      // 良い姿勢の範囲を拡大（0-3°）
+      // 垂直に近い状態や軽度の動きは最小値
       excessiveMovement = 0;
     }
     
