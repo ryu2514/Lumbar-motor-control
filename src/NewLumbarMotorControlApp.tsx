@@ -505,17 +505,17 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         
         const lumbarAngle = calculateFilteredLumbarAngle(shoulderMid, hipMid);
         
-        // テスト別の腰椎過剰運動量を計算（グラフ用に調整）
+        // テスト別の腰椎過剰運動量を計算（メトリクス表示と一致させる）
         let excessiveMovement = 0;
         
         if (testType === 'rockBack') {
-          // ロックバック: 腰椎角度の絶対値をそのまま使用（より敏感な検出）
-          excessiveMovement = Math.abs(lumbarAngle);
+          // ロックバック: useMetrics.tsと同じ計算式を使用（オフセット12°）
+          excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 12);
         } else if (testType === 'seatedKneeExt') {
           // 座位膝関節伸展: 小さなオフセットで敏感に検出
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 2);
         } else {
-          // 立位股関節屈曲: 従来通り
+          // 立位股関節屈曲: useMetrics.tsと同じ計算式（オフセット8°）
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 8);
         }
         
