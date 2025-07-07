@@ -3,7 +3,6 @@ import type { Metric, PoseLandmarkerResult, TestType } from '../types';
 import { LANDMARKS } from '../types';
 import {
   calculateFilteredLumbarAngle,
-  calculateSeatedLumbarFlexion,
   calculateMidpoint,
   resetAngleFilter
 } from '../utils/geometryUtils';
@@ -417,11 +416,11 @@ function calculateSeatedKneeExtMetrics(
       landmarks[LANDMARKS.RIGHT_HIP]
     );
     
-    // 座位専用の腰椎屈曲角度計算（脊柱後傾を正確に検出）
-    const lumbarFlexionAngle = calculateSeatedLumbarFlexion(shoulderMidForLumbar, hipMidForLumbar);
+    // 通常の腰椎角度計算（反転計算用）
+    const lumbarAngle = calculateFilteredLumbarAngle(shoulderMidForLumbar, hipMidForLumbar);
     
     // 1. 腰椎安定性スコア（座位膝関節伸展テスト用）
-    const lumbarDeviation = Math.abs(lumbarFlexionAngle);
+    const lumbarDeviation = Math.abs(lumbarAngle);
     let lumbarStabilityScore = 0;
     
     // 座位膝関節伸展テスト用の安定性評価（より厳しい基準）
@@ -458,22 +457,21 @@ function calculateSeatedKneeExtMetrics(
       normalRange: "80-100点（良好な安定性）"
     });
     
-    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 脊柱後傾検出）
-    // 腰椎屈曲時の脊柱後傾を直接検出
+    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 反転計算）
+    // 座位では安静時に大きい値、膝伸展時（代償）に小さい値になるため反転
+    // 基準値から現在値を引いて、代償動作時に高い値になるよう調整
+    const baselineAngle = 10; // 安静時の基準角度
     let excessiveMovement = 0;
     
-    if (lumbarFlexionAngle > 0.5) {
-      // 屈曲方向（脊柱後傾）: 代償運動として非常に強く検出
-      excessiveMovement = lumbarFlexionAngle * 3.0; // さらに強化した検出
-    } else if (lumbarFlexionAngle < -0.5) {
-      // 伸展方向（脊柱前傾）: 標準的な評価
-      excessiveMovement = Math.abs(lumbarFlexionAngle) * 1.0;
+    if (lumbarAngle > 0) {
+      // 前屈方向: さらに強化した反転効果（屈曲代償を強調）
+      excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 3.0);
     } else {
-      // 中立位範囲（-0.5°～+0.5°）でも小さな値を設定
-      excessiveMovement = Math.abs(lumbarFlexionAngle) * 0.5;
+      // 後屈方向: 強化した反転効果
+      excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 1.2);
     }
     
-    // 最小値は0に設定
+    // 負の値は0にクリップ
     excessiveMovement = Math.max(0, excessiveMovement);
     
     // 座位膝関節伸展テスト用の厳しい基準を維持（7°以上で厳格な評価）
@@ -482,11 +480,11 @@ function calculateSeatedKneeExtMetrics(
     let excessiveStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let excessiveDescription = '座位膝伸展時の腰椎制御';
     
-    // 非常に感度の高い閾値設定で状態判定
-    if (excessiveMovement <= 2) {
+    // 非常に感度の高い閾値設定で状態判定（代償検出強化）
+    if (excessiveMovement <= 3) {
       excessiveStatus = 'normal';
       excessiveDescription = '良好な腰椎制御（座位膝伸展）';
-    } else if (excessiveMovement <= 6) {
+    } else if (excessiveMovement <= 8) {
       excessiveStatus = 'caution';
       excessiveDescription = '軽度の過剰運動（座位膝伸展）';
     } else {
