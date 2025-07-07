@@ -420,19 +420,38 @@ export const calculateSeatedLumbarFlexion = (
     z: shoulderMid.z - hipMid.z
   };
   
-  // 矢状面（Z-Y平面）での脊柱の傾斜角度を計算
-  // 腰椎屈曲時：脊柱が後方（Z正方向）に傾く
-  const sagittalAngle = Math.atan2(spinalVector.z, -spinalVector.y);
-  let lumbarFlexionAngle = radToDeg(sagittalAngle);
+  // 矢状面での脊柱傾斜を計算（座位膝関節伸展専用）
+  // Z方向の変化をより重視した計算
+  const zComponent = spinalVector.z;
+  const yComponent = -spinalVector.y; // Y軸を反転
   
-  // 座位での正常範囲調整（-10° ~ +30°）
-  // 正の値：屈曲（脊柱後傾）
-  // 負の値：伸展（脊柱前傾）
-  lumbarFlexionAngle = Math.max(-15, Math.min(45, lumbarFlexionAngle));
+  // 角度計算（Z方向の変化を強調）
+  let lumbarFlexionAngle = Math.atan2(zComponent, yComponent) * (180 / Math.PI);
   
-  // 軽微な動きはノイズとして除去
-  if (Math.abs(lumbarFlexionAngle) < 2) {
+  // 座位での感度を上げるための調整
+  // Z成分が正（後方）の場合は屈曲としてさらに強調
+  if (zComponent > 0) {
+    lumbarFlexionAngle = Math.abs(lumbarFlexionAngle) * 3.0; // 屈曲方向をさらに強調
+  } else {
+    lumbarFlexionAngle = -Math.abs(lumbarFlexionAngle) * 0.5; // 伸展方向をさらに軽減
+  }
+  
+  // 座位での実用範囲に調整
+  lumbarFlexionAngle = Math.max(-20, Math.min(50, lumbarFlexionAngle));
+  
+  // 非常に敏感な閾値設定（0.3°から検出）
+  if (Math.abs(lumbarFlexionAngle) < 0.3) {
     lumbarFlexionAngle = 0;
+  }
+  
+  // デバッグログ（開発時のみ）
+  if (process.env.NODE_ENV === 'development' && Math.random() < 0.001) {
+    console.log('🪑 座位腰椎屈曲計算:', {
+      Z成分: zComponent.toFixed(4),
+      Y成分: yComponent.toFixed(4),
+      計算角度: lumbarFlexionAngle.toFixed(1) + '°',
+      判定: lumbarFlexionAngle > 3 ? '🔴屈曲検出' : lumbarFlexionAngle < -3 ? '🔵伸展' : '⚪中立'
+    });
   }
   
   return lumbarFlexionAngle;
