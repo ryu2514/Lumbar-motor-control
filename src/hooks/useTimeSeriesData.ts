@@ -43,7 +43,11 @@ export const useTimeSeriesData = () => {
   });
   
   const intervalRef = useRef<number | null>(null);
+  const lastUpdateRef = useRef<number>(0);
   const maxDataPoints = useRef<number>(300); // 最大5分間（1秒間隔）のデータを保持
+  
+  // モバイル検出
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   // データ記録開始
   const startRecording = useCallback(() => {
@@ -73,19 +77,17 @@ export const useTimeSeriesData = () => {
     }
   }, []);
 
-  // データポイント追加
+  // データポイント追加（モバイル最適化）
   const addDataPoint = useCallback((excessiveMovement: number) => {
-    console.log('🔥 addDataPoint呼び出し:', { excessiveMovement });
+    // モバイルでは更新頻度を制限
+    const now = Date.now();
+    if (isMobile && now - lastUpdateRef.current < 200) { // 200ms間隔で制限
+      return;
+    }
+    lastUpdateRef.current = now;
     
     setTimeSeriesData(prev => {
-      console.log('🔥 addDataPoint内部状態:', {
-        記録中: prev.isRecording,
-        開始時間: prev.startTime,
-        現在データ数: prev.data.length
-      });
-      
       if (!prev.isRecording || prev.startTime === null) {
-        console.log('❌ 記録条件不一致でリターン');
         return prev;
       }
 

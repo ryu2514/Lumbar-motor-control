@@ -70,8 +70,8 @@ const CustomDot = memo((props: any) => {
   // モバイルデバイス検出
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   
-  // モバイルでは点を間引いて描画
-  if (isMobile && Math.random() > 0.3) return null;
+  // モバイルでは点を大幅に間引いて描画
+  if (isMobile && Math.random() > 0.1) return null;
   
   return (
     <circle
@@ -116,9 +116,15 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
       !isNaN(point.lumbarAngle)
     );
     
-    // モバイルではデータ量を制限してパフォーマンス向上
-    const maxDataPoints = isMobile ? 150 : 300;
+    // モバイルではさらにデータ量を制限してパフォーマンス向上
+    const maxDataPoints = isMobile ? 100 : 300; // モバイルで100ポイントにさらに減らす
     const step = Math.max(1, Math.floor(filteredData.length / maxDataPoints));
+    
+    // モバイルではさらに関間引きして最新データを優先
+    if (isMobile && filteredData.length > maxDataPoints) {
+      const recent = filteredData.slice(-maxDataPoints);
+      return recent.filter((_, index) => index % 2 === 0); // 2倍の間引き
+    }
     
     return filteredData.filter((_, index) => index % step === 0);
   }, [data, isMobile]);
@@ -173,19 +179,23 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
               data={validData} 
               margin={{ top: 20, right: isMobile ? 10 : 30, left: isMobile ? 10 : 20, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              {!isMobile && <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />}
               <XAxis 
                 dataKey="time" 
                 type="number"
                 scale="linear"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(value) => `${value.toFixed(1)}s`}
+                tickFormatter={isMobile ? undefined : (value) => `${value.toFixed(1)}s`}
                 stroke="#6b7280"
+                tick={isMobile ? { fontSize: 10 } : undefined}
+                interval={isMobile ? 'preserveStartEnd' : 'preserveStart'}
               />
               <YAxis 
                 domain={yAxisDomain}
-                tickFormatter={(value) => `${value}°`}
+                tickFormatter={isMobile ? undefined : (value) => `${value}°`}
                 stroke="#6b7280"
+                tick={isMobile ? { fontSize: 10 } : undefined}
+                width={isMobile ? 30 : 60}
               />
               {!isMobile && <Tooltip content={<CustomTooltip />} />}
               
@@ -200,13 +210,14 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
               
               {/* メインライン（モバイル最適化） */}
               <Line 
-                type="monotone" 
+                type={isMobile ? "linear" : "monotone"}
                 dataKey="lumbarAngle" 
                 stroke="#3b82f6"
-                strokeWidth={isMobile ? 1.5 : 2}
-                dot={isMobile ? false : <CustomDot />}
+                strokeWidth={isMobile ? 1 : 2}
+                dot={false}
                 connectNulls={false}
                 isAnimationActive={false}
+                activeDot={false}
               />
             </ComposedChart>
           </ResponsiveContainer>

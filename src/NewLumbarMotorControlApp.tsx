@@ -29,7 +29,7 @@ if (typeof window !== 'undefined') {
 import { LANDMARKS } from './types';
 
 // ユーティリティのインポート
-import { resetAngleFilter, calculateFilteredLumbarAngle, calculateMidpoint } from './utils/geometryUtils';
+import { resetAngleFilter, calculateFilteredLumbarAngle, calculateSeatedLumbarFlexion, calculateMidpoint } from './utils/geometryUtils';
 
 // コンポーネントのインポート
 import { LumbarExcessiveMovementChartWithStats } from './components/LumbarAngleChart';
@@ -512,37 +512,22 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           // ロックバック: useMetrics.tsと同じ計算式を使用（オフセット12°）
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 12);
         } else if (testType === 'seatedKneeExt') {
-          // 座位膝関節伸展: 反転計算（安静時低値、代償時高値）
-          const baselineAngle = 10; // 安静時の基準角度
-          excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 1.0);
+          // 座位膝関節伸展: 座位専用の腰椎屈曲検出
+          const lumbarFlexionAngle = calculateSeatedLumbarFlexion(shoulderMid, hipMid);
+          if (lumbarFlexionAngle > 0) {
+            excessiveMovement = lumbarFlexionAngle * 1.2; // 屈曲を強調
+          } else {
+            excessiveMovement = Math.abs(lumbarFlexionAngle) * 0.5;
+          }
+          excessiveMovement = Math.max(0, excessiveMovement);
         } else {
           // 立位股関節屈曲: useMetrics.tsと同じ計算式（オフセット8°）
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 8);
         }
         
-        console.log('✅ データポイント追加前:', {
-          テスト: testType,
-          生腰椎角度: lumbarAngle.toFixed(1),
-          過剰運動量: excessiveMovement.toFixed(1),
-          記録中: timeSeriesData.isRecording,
-          現在データ数: timeSeriesData.data.length
-        });
-        
         addDataPoint(excessiveMovement);
         
-        console.log('✅ データポイント追加後:', {
-          データ数: timeSeriesData.data.length
-        });
-        
-      } else {
-        console.log('❌ ランドマーク不足でスキップ');
       }
-    } else {
-      console.log('❌ 記録条件未満でスキップ:', {
-        記録中: timeSeriesData.isRecording,
-        結果: !!result,
-        worldLandmarks: !!(result?.worldLandmarks?.length)
-      });
     }
   }, [result, timeSeriesData.isRecording, addDataPoint, testType]);
 
