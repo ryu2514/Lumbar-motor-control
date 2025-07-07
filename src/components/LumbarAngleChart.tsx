@@ -62,27 +62,7 @@ const getPointColor = (status: string) => {
   }
 };
 
-// 軽量なカスタムドットコンポーネント（モバイル最適化）
-const CustomDot = memo((props: any) => {
-  const { cx, cy, payload } = props;
-  if (!payload || typeof cx !== 'number' || typeof cy !== 'number') return null;
-  
-  // モバイルデバイス検出
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  
-  // モバイルでは点を大幅に間引いて描画
-  if (isMobile && Math.random() > 0.1) return null;
-  
-  return (
-    <circle
-      cx={cx}
-      cy={cy}
-      r={isMobile ? 1.5 : 2}
-      fill={getPointColor(payload.status)}
-      stroke="none"
-    />
-  );
-});
+// CustomDotコンポーネントは使用されていないため削除
 
 export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChartProps> = memo(({
   data,
