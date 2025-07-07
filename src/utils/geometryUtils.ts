@@ -420,9 +420,6 @@ export const calculateSeatedLumbarFlexion = (
     z: shoulderMid.z - hipMid.z
   };
   
-  // 垂直基準ベクトル（座位での理想的な脊柱姿勢）
-  const verticalReference = { x: 0, y: -1, z: 0 }; // Y軸負方向（上向き）
-  
   // 矢状面（Z-Y平面）での脊柱の傾斜角度を計算
   // 腰椎屈曲時：脊柱が後方（Z正方向）に傾く
   const sagittalAngle = Math.atan2(spinalVector.z, -spinalVector.y);

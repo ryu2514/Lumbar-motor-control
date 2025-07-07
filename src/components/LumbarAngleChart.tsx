@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback, memo } from 'react';
+import React, { useMemo, useEffect, useState, memo } from 'react';
 import {
   Line,
   XAxis,
@@ -166,13 +166,12 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
         </div>
       </div>
 
-      <div style={{ width: '100%', height: '300px' }}>
+      <div style={{ width: '100%', height: isMobile ? '250px' : '300px' }}>
         {validData.length > 0 ? (
-          <ResponsiveContainer key={`container-${forceRender}`}>
+          <ResponsiveContainer>
             <ComposedChart 
               data={validData} 
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-              key={`chart-${validData.length}-${forceRender}-${validData[validData.length - 1]?.time || 0}`}
+              margin={{ top: 20, right: isMobile ? 10 : 30, left: isMobile ? 10 : 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis 
