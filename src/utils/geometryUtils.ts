@@ -401,3 +401,42 @@ export const addStabilityDataPoint = (
 export const analyzeLumbarStability = () => {
   return dynamicStabilityAnalyzer.analyzeLumbarStability();
 };
+
+/**
+ * 座位膝関節伸展テスト専用の腰椎屈曲角度計算
+ * 腰椎屈曲時の脊柱後傾を正確に検出
+ * @param shoulderMid 肩の中心点
+ * @param hipMid 腰の中心点
+ * @returns 腰椎屈曲角度（度）- 正の値: 屈曲（脊柱後傾）、負の値: 伸展（脊柱前傾）
+ */
+export const calculateSeatedLumbarFlexion = (
+  shoulderMid: { x: number; y: number; z: number },
+  hipMid: { x: number; y: number; z: number }
+): number => {
+  // 脊柱ベクトル（腰から肩への方向）
+  const spinalVector = {
+    x: shoulderMid.x - hipMid.x,
+    y: shoulderMid.y - hipMid.y,
+    z: shoulderMid.z - hipMid.z
+  };
+  
+  // 垂直基準ベクトル（座位での理想的な脊柱姿勢）
+  const verticalReference = { x: 0, y: -1, z: 0 }; // Y軸負方向（上向き）
+  
+  // 矢状面（Z-Y平面）での脊柱の傾斜角度を計算
+  // 腰椎屈曲時：脊柱が後方（Z正方向）に傾く
+  const sagittalAngle = Math.atan2(spinalVector.z, -spinalVector.y);
+  let lumbarFlexionAngle = radToDeg(sagittalAngle);
+  
+  // 座位での正常範囲調整（-10° ~ +30°）
+  // 正の値：屈曲（脊柱後傾）
+  // 負の値：伸展（脊柱前傾）
+  lumbarFlexionAngle = Math.max(-15, Math.min(45, lumbarFlexionAngle));
+  
+  // 軽微な動きはノイズとして除去
+  if (Math.abs(lumbarFlexionAngle) < 2) {
+    lumbarFlexionAngle = 0;
+  }
+  
+  return lumbarFlexionAngle;
+};

@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useCallback, memo } from 'react';
 import {
   Line,
   XAxis,
@@ -62,42 +62,48 @@ const getPointColor = (status: string) => {
   }
 };
 
-// カスタムドットコンポーネント
-const CustomDot = (props: any) => {
+// 軽量なカスタムドットコンポーネント（モバイル最適化）
+const CustomDot = memo((props: any) => {
   const { cx, cy, payload } = props;
-  if (!payload) return null;
+  if (!payload || typeof cx !== 'number' || typeof cy !== 'number') return null;
+  
+  // モバイルデバイス検出
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  
+  // モバイルでは点を間引いて描画
+  if (isMobile && Math.random() > 0.3) return null;
   
   return (
     <circle
       cx={cx}
       cy={cy}
-      r={2}
+      r={isMobile ? 1.5 : 2}
       fill={getPointColor(payload.status)}
-      stroke={getPointColor(payload.status)}
-      strokeWidth={1}
+      stroke="none"
     />
   );
-};
+});
 
-export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChartProps> = ({
+export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChartProps> = memo(({
   data,
   isRecording,
   duration
 }) => {
-  // 強制的な再レンダリング用状態
-  const [forceRender, setForceRender] = useState(0);
+  // モバイルデバイス検出
+  const [isMobile, setIsMobile] = useState(false);
   
-  // データが変更されたときの強制再レンダリング
   useEffect(() => {
-    if (data.length > 0) {
-      setForceRender(prev => prev + 1);
-    }
-  }, [data.length, data]);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
-  // データの有効性チェック
+  // データの有効性チェック（モバイル最適化）
   const validData = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
-      console.log('❌ グラフ: 無効なデータ');
       return [];
     }
     
@@ -110,61 +116,38 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
       !isNaN(point.lumbarAngle)
     );
     
-    console.log('📈 グラフ有効データ確認:', {
-      元データ数: data.length,
-      有効データ数: filteredData.length,
-      最新5件: filteredData.slice(-5).map(d => ({
-        時間: d.time.toFixed(1),
-        角度: d.lumbarAngle.toFixed(1),
-        状態: d.status
-      })),
-      時間範囲: filteredData.length > 0 ? `${Math.min(...filteredData.map(d => d.time)).toFixed(1)}s - ${Math.max(...filteredData.map(d => d.time)).toFixed(1)}s` : 'なし',
-      角度範囲: filteredData.length > 0 ? `${Math.min(...filteredData.map(d => d.lumbarAngle)).toFixed(1)}° - ${Math.max(...filteredData.map(d => d.lumbarAngle)).toFixed(1)}°` : 'なし'
-    });
+    // モバイルではデータ量を制限してパフォーマンス向上
+    const maxDataPoints = isMobile ? 150 : 300;
+    const step = Math.max(1, Math.floor(filteredData.length / maxDataPoints));
     
-    return filteredData;
-  }, [data]);
+    return filteredData.filter((_, index) => index % step === 0);
+  }, [data, isMobile]);
   
-  // Y軸の動的範囲計算（安全な範囲制限付き）
+  // Y軸の動的範囲計算（モバイル最適化）
   const yAxisDomain = useMemo(() => {
     if (validData.length === 0) return [0, 20];
     
     const angles = validData.map(d => d.lumbarAngle);
-    
-    // 異常値を除外（-50°から100°の範囲外を除外）
     const filteredAngles = angles.filter(angle => angle >= -50 && angle <= 100);
     
-    if (filteredAngles.length === 0) {
-      console.log('⚠️ 全てのデータが異常値範囲、デフォルト範囲を使用');
-      return [0, 20];
-    }
+    if (filteredAngles.length === 0) return [0, 20];
     
     const maxAngle = Math.max(...filteredAngles);
     const minAngle = Math.min(...filteredAngles);
-    
-    console.log('📊 Y軸範囲計算:', {
-      元データ数: angles.length,
-      有効データ数: filteredAngles.length,
-      最小値: minAngle.toFixed(1),
-      最大値: maxAngle.toFixed(1),
-      範囲: (maxAngle - minAngle).toFixed(1)
-    });
     
     // 実用的な範囲に調整
     let yMin = Math.max(0, Math.floor(minAngle) - 2);
     let yMax = Math.ceil(maxAngle) + 5;
     
-    // 最小範囲を確保（最低10°の表示範囲）
+    // 最小範囲を確保
     if (yMax - yMin < 10) {
       const center = (yMax + yMin) / 2;
       yMin = Math.max(0, center - 5);
       yMax = center + 5;
     }
     
-    // 最大範囲制限（表示を見やすく保つ）
-    if (yMax > 50) {
-      yMax = 50;
-    }
+    // 最大範囲制限
+    if (yMax > 50) yMax = 50;
     
     return [yMin, yMax];
   }, [validData]);
@@ -205,20 +188,24 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
                 tickFormatter={(value) => `${value}°`}
                 stroke="#6b7280"
               />
-              <Tooltip content={<CustomTooltip />} />
+              {!isMobile && <Tooltip content={<CustomTooltip />} />}
               
-              {/* 腰椎過剰運動量の基準線（メトリクス基準と統一） */}
-              <ReferenceLine y={8} stroke="#10b981" strokeDasharray="1 1" opacity={0.7} />
-              <ReferenceLine y={15} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.8} />
-              <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="1 1" opacity={0.3} />
+              {/* 腰椎過剰運動量の基準線（モバイルでは簡略化） */}
+              {!isMobile && (
+                <>
+                  <ReferenceLine y={8} stroke="#10b981" strokeDasharray="1 1" opacity={0.7} />
+                  <ReferenceLine y={15} stroke="#f59e0b" strokeDasharray="2 2" opacity={0.8} />
+                  <ReferenceLine y={0} stroke="#6b7280" strokeDasharray="1 1" opacity={0.3} />
+                </>
+              )}
               
-              {/* メインライン */}
+              {/* メインライン（モバイル最適化） */}
               <Line 
                 type="monotone" 
                 dataKey="lumbarAngle" 
                 stroke="#3b82f6"
-                strokeWidth={2}
-                dot={<CustomDot />}
+                strokeWidth={isMobile ? 1.5 : 2}
+                dot={isMobile ? false : <CustomDot />}
                 connectNulls={false}
                 isAnimationActive={false}
               />
@@ -273,9 +260,9 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
       </div>
     </div>
   );
-};
+});
 
-export const LumbarExcessiveMovementChartWithStats: React.FC<LumbarExcessiveMovementChartWithStatsProps> = ({
+export const LumbarExcessiveMovementChartWithStats: React.FC<LumbarExcessiveMovementChartWithStatsProps> = memo(({
   data,
   isRecording,
   duration,
@@ -346,4 +333,4 @@ export const LumbarExcessiveMovementChartWithStats: React.FC<LumbarExcessiveMove
       )}
     </div>
   );
-};
+});

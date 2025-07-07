@@ -3,6 +3,7 @@ import type { Metric, PoseLandmarkerResult, TestType } from '../types';
 import { LANDMARKS } from '../types';
 import {
   calculateFilteredLumbarAngle,
+  calculateSeatedLumbarFlexion,
   calculateMidpoint,
   resetAngleFilter
 } from '../utils/geometryUtils';
@@ -416,21 +417,22 @@ function calculateSeatedKneeExtMetrics(
       landmarks[LANDMARKS.RIGHT_HIP]
     );
     
-    const lumbarAngle = calculateFilteredLumbarAngle(shoulderMidForLumbar, hipMidForLumbar);
+    // 座位専用の腰椎屈曲角度計算（脊柱後傾を正確に検出）
+    const lumbarFlexionAngle = calculateSeatedLumbarFlexion(shoulderMidForLumbar, hipMidForLumbar);
     
     // 1. 腰椎安定性スコア（座位膝関節伸展テスト用）
-    const lumbarDeviation = Math.abs(lumbarAngle);
+    const lumbarDeviation = Math.abs(lumbarFlexionAngle);
     let lumbarStabilityScore = 0;
     
     // 座位膝関節伸展テスト用の安定性評価（より厳しい基準）
-    if (lumbarDeviation <= 10) {
-      lumbarStabilityScore = 100 - (lumbarDeviation * 2); // 10°まで2点ずつ減点
-    } else if (lumbarDeviation <= 20) {
-      lumbarStabilityScore = Math.max(0, 80 - ((lumbarDeviation - 10) * 4)); // 10°超えで4点ずつ減点
-    } else if (lumbarDeviation <= 30) {
-      lumbarStabilityScore = Math.max(0, 40 - ((lumbarDeviation - 20) * 2)); // 20°超えで2点ずつ減点
+    if (lumbarDeviation <= 8) {
+      lumbarStabilityScore = 100 - (lumbarDeviation * 2.5); // 8°まで2.5点ずつ減点
+    } else if (lumbarDeviation <= 15) {
+      lumbarStabilityScore = Math.max(0, 80 - ((lumbarDeviation - 8) * 5)); // 8°超えで5点ずつ減点
+    } else if (lumbarDeviation <= 25) {
+      lumbarStabilityScore = Math.max(0, 45 - ((lumbarDeviation - 15) * 3)); // 15°超えで3点ずつ減点
     } else {
-      lumbarStabilityScore = Math.max(0, 20 - ((lumbarDeviation - 30) * 1)); // 30°超えで1点ずつ減点
+      lumbarStabilityScore = Math.max(0, 15 - ((lumbarDeviation - 25) * 1)); // 25°超えで1点ずつ減点
     }
     
     let stabilityStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
@@ -456,21 +458,19 @@ function calculateSeatedKneeExtMetrics(
       normalRange: "80-100点（良好な安定性）"
     });
     
-    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 屈曲方向強調反転計算）
-    // 座位膝関節伸展では腰椎屈曲（前屈）が主な問題
-    // 反転計算をベースに、屈曲方向をより強調して検出
-    const baselineAngle = 10; // 安静時の基準角度
+    // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 脊柱後傾検出）
+    // 腰椎屈曲時の脊柱後傾を直接検出
     let excessiveMovement = 0;
     
-    if (lumbarAngle > 0) {
-      // 前屈方向: さらに強化した反転効果（屈曲代償を強調）
-      excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.5);
+    if (lumbarFlexionAngle > 0) {
+      // 屈曲方向（脊柱後傾）: 代償運動として検出
+      excessiveMovement = lumbarFlexionAngle * 1.2; // 屈曲を強調
     } else {
-      // 後屈方向: 標準的な反転効果
-      excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.8);
+      // 伸展方向（脊柱前傾）: 軽度の評価
+      excessiveMovement = Math.abs(lumbarFlexionAngle) * 0.5;
     }
     
-    // 負の値は0にクリップ
+    // 最小値は0に設定
     excessiveMovement = Math.max(0, excessiveMovement);
     
     // 座位膝関節伸展テスト用の厳しい基準を維持（7°以上で厳格な評価）
