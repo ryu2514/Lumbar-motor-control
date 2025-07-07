@@ -52,17 +52,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-// ポイントの色を状態に応じて変更する関数（日本整形外科学会基準）
-const getPointColor = (status: string) => {
-  switch (status) {
-    case 'normal': return '#10b981'; // green-500
-    case 'caution': return '#f59e0b'; // yellow-500  
-    case 'abnormal': return '#ef4444'; // red-500
-    default: return '#6b7280'; // gray-500
-  }
-};
-
-// CustomDotコンポーネントは使用されていないため削除
+// 未使用の関数とコンポーネントを削除
 
 export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChartProps> = memo(({
   data,
