@@ -463,8 +463,8 @@ function calculateSeatedKneeExtMetrics(
     let excessiveMovement = 0;
     
     if (lumbarAngle > 0) {
-      // 前屈方向: より強い反転効果（屈曲代償を強調）
-      excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.2);
+      // 前屈方向: さらに強化した反転効果（屈曲代償を強調）
+      excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.5);
     } else {
       // 後屈方向: 標準的な反転効果
       excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.8);
