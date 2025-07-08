@@ -18,7 +18,7 @@ class MemoryProtection {
   private protectedStorage = new Map<string, ProtectedData>();
   private cleanupInterval: number | null = null;
   private readonly defaultTTL = 5 * 60 * 1000; // 5分
-  private readonly cleanupIntervalMs = 30 * 1000; // 30秒ごとにクリーンアップ
+  private readonly cleanupIntervalMs = typeof window !== 'undefined' && window.innerWidth < 768 ? 120 * 1000 : 30 * 1000; // モバイルでは2分、デスクトップでは30秒
 
   constructor() {
     this.startCleanupScheduler();
@@ -146,35 +146,43 @@ class MemoryProtection {
   }
 
   /**
-   * データの安全な消去
+   * データの安全な消去 - モバイル最適化
    */
   private secureWipeData(data: any): void {
     if (data === null || data === undefined) {
       return;
     }
 
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
     try {
       if (data instanceof ArrayBuffer) {
         const view = new Uint8Array(data);
-        // 複数回のランダムな値で上書き（DoD 5220.22-M準拠）
-        for (let pass = 0; pass < 3; pass++) {
+        // モバイルでは1回のみ、デスクトップでは3回上書き
+        const passes = isMobile ? 1 : 3;
+        for (let pass = 0; pass < passes; pass++) {
           crypto.getRandomValues(view);
         }
         view.fill(0); // 最終的にゼロで埋める
       } else if (data instanceof Uint8Array || data instanceof Int8Array) {
-        for (let pass = 0; pass < 3; pass++) {
+        const passes = isMobile ? 1 : 3;
+        for (let pass = 0; pass < passes; pass++) {
           crypto.getRandomValues(data as Uint8Array);
         }
         data.fill(0);
       } else if (Array.isArray(data)) {
         data.forEach((item, index) => {
-          this.secureWipeData(item);
+          if (!isMobile) {
+            this.secureWipeData(item); // モバイルでは簡略化
+          }
           data[index] = null;
         });
         data.length = 0;
       } else if (typeof data === 'object') {
         Object.keys(data).forEach(key => {
-          this.secureWipeData(data[key]);
+          if (!isMobile) {
+            this.secureWipeData(data[key]); // モバイルでは簡略化
+          }
           delete data[key];
         });
       } else if (typeof data === 'string') {
@@ -182,12 +190,15 @@ class MemoryProtection {
         data = '';
       }
     } catch (error) {
-      securityLogger.logEvent(
-        'error_occurred',
-        'low',
-        'Secure wipe operation failed',
-        { dataType: typeof data, error: error instanceof Error ? error.message : String(error) }
-      );
+      // モバイルではログを減らす
+      if (!isMobile) {
+        securityLogger.logEvent(
+          'error_occurred',
+          'low',
+          'Secure wipe operation failed',
+          { dataType: typeof data, error: error instanceof Error ? error.message : String(error) }
+        );
+      }
     }
   }
 

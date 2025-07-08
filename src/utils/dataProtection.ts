@@ -158,9 +158,14 @@ class DataProtection {
   }
 
   /**
-   * 座標データの匿名化（相対座標への変換）
+   * 座標データの匿名化（相対座標への変換）- モバイル最適化
    */
   anonymizeCoordinates(landmarks: any[]): any[] {
+    // モバイルではパフォーマンス優先で簡略化
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      return landmarks; // モバイルでは匿名化をスキップ
+    }
+
     if (!landmarks || landmarks.length === 0) return landmarks;
 
     try {
@@ -182,12 +187,15 @@ class DataProtection {
         };
       });
 
-      securityLogger.logEvent(
-        'file_upload_accepted' as any,
-        'low',
-        'Coordinate data anonymized',
-        { landmarkCount: landmarks.length }
-      );
+      // ログを減らしてパフォーマンス向上
+      if (Math.random() < 0.01) { // 1%の確率でログ
+        securityLogger.logEvent(
+          'file_upload_accepted' as any,
+          'low',
+          'Coordinate data anonymized',
+          { landmarkCount: landmarks.length }
+        );
+      }
 
       return anonymized;
     } catch (error) {
@@ -218,9 +226,23 @@ class DataProtection {
   }
 
   /**
-   * メモリ内データの安全な消去
+   * メモリ内データの安全な消去 - モバイル最適化
    */
   secureDelete(data: any): void {
+    // モバイルでは簡略化してパフォーマンス向上
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      try {
+        if (typeof data === 'object' && data !== null) {
+          Object.keys(data).forEach(key => {
+            delete data[key];
+          });
+        }
+      } catch (error) {
+        // モバイルではログを減らす
+      }
+      return;
+    }
+
     try {
       if (data instanceof ArrayBuffer) {
         // ArrayBufferの内容をゼロで上書き
@@ -235,7 +257,7 @@ class DataProtection {
         });
       }
 
-      // ガベージコレクションを促進
+      // ガベージコレクションを促進（デスクトップのみ）
       if (typeof window !== 'undefined' && (window as any).gc) {
         (window as any).gc();
       }
