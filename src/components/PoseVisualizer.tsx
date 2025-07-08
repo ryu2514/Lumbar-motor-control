@@ -73,9 +73,11 @@ const PoseVisualizer: React.FC<PoseVisualizerProps> = ({ result, videoRef, testT
       return;
     }
 
-    // フレームレート制限（30FPS）- チラつき防止
+    // スマホでの線遅延改善のためフレームレートをさらに制限
     const now = performance.now();
-    if (now - lastDrawTimeRef.current < 33) { // 33ms = 30FPS
+    const isMobile = window.innerWidth < 768;
+    const frameLimit = isMobile ? 100 : 33; // スマホ: 10FPS, デスクトップ: 30FPS
+    if (now - lastDrawTimeRef.current < frameLimit) {
       return;
     }
     lastDrawTimeRef.current = now;
@@ -94,40 +96,44 @@ const PoseVisualizer: React.FC<PoseVisualizerProps> = ({ result, videoRef, testT
 
     const landmarks = result.landmarks[0];
 
-    // 接続線を一括描画（パフォーマンス向上）
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = CONNECTION_COLOR;
-    ctx.beginPath();
+    // スマホでは接続線を簡略化して遅延改善
+    if (!isMobile) {
+      // デスクトップのみ接続線を描画
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = CONNECTION_COLOR;
+      ctx.beginPath();
 
-    for (const [start, end] of POSE_CONNECTIONS) {
-      if (landmarks[start] && landmarks[end]) {
-        const startLandmark = landmarks[start];
-        const endLandmark = landmarks[end];
+      for (const [start, end] of POSE_CONNECTIONS) {
+        if (landmarks[start] && landmarks[end]) {
+          const startLandmark = landmarks[start];
+          const endLandmark = landmarks[end];
 
-        if ((startLandmark.visibility || 0) > 0.5 && (endLandmark.visibility || 0) > 0.5) {
-          ctx.moveTo(startLandmark.x * canvas.width, startLandmark.y * canvas.height);
-          ctx.lineTo(endLandmark.x * canvas.width, endLandmark.y * canvas.height);
+          if ((startLandmark.visibility || 0) > 0.5 && (endLandmark.visibility || 0) > 0.5) {
+            ctx.moveTo(startLandmark.x * canvas.width, startLandmark.y * canvas.height);
+            ctx.lineTo(endLandmark.x * canvas.width, endLandmark.y * canvas.height);
+          }
         }
       }
+      ctx.stroke();
     }
-    ctx.stroke();
 
-    // ランドマークを描画（重要なもののみ表示でパフォーマンス向上）
+    // スマホでは腰椎関連ランドマークのみ、デスクトップでは全部表示
+    const targetIndices = isMobile ? [11, 12, 23, 24] : highlightIndices; // スマホでは肩と腰のみ
     landmarks.forEach((landmark, index) => {
-      if ((landmark.visibility || 0) > 0.5 && highlightIndices.includes(index)) {
+      if ((landmark.visibility || 0) > 0.5 && targetIndices.includes(index)) {
         const x = landmark.x * canvas.width;
         const y = landmark.y * canvas.height;
         
         ctx.beginPath();
-        ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.arc(x, y, isMobile ? 3 : 6, 0, 2 * Math.PI); // スマホでは小さめに
         ctx.fillStyle = getLandmarkColor(index);
         ctx.fill();
       }
     });
 
-    // 評価に関連する特定のマーキング（テスト種類に応じて）
-    if (testType === 'standingHipFlex' && landmarks[23] && landmarks[24] && landmarks[25] && landmarks[26]) {
-      // 骨盤と大腿骨のラインを強調
+    // スマホでは特定マーキングをスキップして遅延改善
+    if (!isMobile && testType === 'standingHipFlex' && landmarks[23] && landmarks[24] && landmarks[25] && landmarks[26]) {
+      // 骨盤と大腿骨のラインを強調（デスクトップのみ）
       const hipMidX = (landmarks[23].x + landmarks[24].x) / 2 * canvas.width;
       const hipMidY = (landmarks[23].y + landmarks[24].y) / 2 * canvas.height;
       const kneeMidX = (landmarks[25].x + landmarks[26].x) / 2 * canvas.width;

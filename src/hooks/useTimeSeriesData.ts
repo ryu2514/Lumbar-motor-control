@@ -44,7 +44,7 @@ export const useTimeSeriesData = () => {
   
   const intervalRef = useRef<number | null>(null);
   const lastUpdateRef = useRef<number>(0);
-  const maxDataPoints = useRef<number>(300); // 最大5分間（1秒間隔）のデータを保持
+  const maxDataPoints = useRef<number>(isMobile ? 150 : 300); // モバイルでは最大データ数を半分に制限
   
   // モバイル検出
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -79,9 +79,9 @@ export const useTimeSeriesData = () => {
 
   // データポイント追加（モバイル最適化）
   const addDataPoint = useCallback((excessiveMovement: number) => {
-    // モバイルでは更新頻度を制限
+    // スマホでの線遅延改善のため更新頻度をさらに制限
     const now = Date.now();
-    if (isMobile && now - lastUpdateRef.current < 200) { // 200ms間隔で制限
+    if (isMobile && now - lastUpdateRef.current < 300) { // 300ms間隔に延長でさらに軽量化
       return;
     }
     lastUpdateRef.current = now;

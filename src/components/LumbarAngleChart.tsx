@@ -86,14 +86,14 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
       !isNaN(point.lumbarAngle)
     );
     
-    // モバイルではさらにデータ量を制限してパフォーマンス向上
-    const maxDataPoints = isMobile ? 100 : 300; // モバイルで100ポイントにさらに減らす
+    // モバイルでの線遅延改善のためさらに攻撃的なデータ削減
+    const maxDataPoints = isMobile ? 50 : 300; // モバイルでは50ポイントにさらに削減
     const step = Math.max(1, Math.floor(filteredData.length / maxDataPoints));
     
-    // モバイルではさらに関間引きして最新データを優先
+    // モバイルでは最新データのみを使用して4倍の間引き
     if (isMobile && filteredData.length > maxDataPoints) {
       const recent = filteredData.slice(-maxDataPoints);
-      return recent.filter((_, index) => index % 2 === 0); // 2倍の間引き
+      return recent.filter((_, index) => index % 4 === 0); // 4倍の間引きでさらに軽量化
     }
     
     return filteredData.filter((_, index) => index % step === 0);
@@ -178,9 +178,9 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
                 </>
               )}
               
-              {/* メインライン（モバイル最適化） */}
+              {/* メインライン（スマホ遅延改善版） */}
               <Line 
-                type={isMobile ? "linear" : "monotone"}
+                type="linear"
                 dataKey="lumbarAngle" 
                 stroke="#3b82f6"
                 strokeWidth={isMobile ? 1 : 2}
@@ -188,6 +188,8 @@ export const LumbarExcessiveMovementChart: React.FC<LumbarExcessiveMovementChart
                 connectNulls={false}
                 isAnimationActive={false}
                 activeDot={false}
+                strokeDasharray={isMobile ? "" : ""}
+                opacity={isMobile ? 0.9 : 1}
               />
             </ComposedChart>
           </ResponsiveContainer>
