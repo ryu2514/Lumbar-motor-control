@@ -44,10 +44,10 @@ export const useTimeSeriesData = () => {
   
   const intervalRef = useRef<number | null>(null);
   const lastUpdateRef = useRef<number>(0);
-  const maxDataPoints = useRef<number>(isMobile ? 150 : 300); // モバイルでは最大データ数を半分に制限
   
   // モバイル検出
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const maxDataPoints = useRef<number>(isMobile ? 150 : 300); // モバイルでは最大データ数を半分に制限
 
   // データ記録開始
   const startRecording = useCallback(() => {
