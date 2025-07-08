@@ -183,16 +183,16 @@ function calculateOverallScore(metrics: Metric[]): Metric {
       // 既に100点満点
       normalizedScore = metric.value;
     } else if (metric.label === "腰椎過剰運動量") {
-      // ロックバック動作では調整された過剰運動量を評価
-      // 0-8°が100点、8-15°で段階的減点、15-25°で更に減点
-      if (metric.value <= 8) {
+      // 座位膝関節伸展テストでは緩やかな減点で総合評価スコアを上げる
+      // 0-6°が100点、6-10°で緩やかな減点、10°以上で段階的減点
+      if (metric.value <= 6) {
         normalizedScore = 100;
-      } else if (metric.value <= 15) {
-        normalizedScore = 100 - ((metric.value - 8) * 6); // 8°超えで6点ずつ減点
-      } else if (metric.value <= 25) {
-        normalizedScore = Math.max(0, 58 - ((metric.value - 15) * 3)); // 15°超えで3点ずつ減点
+      } else if (metric.value <= 10) {
+        normalizedScore = 100 - ((metric.value - 6) * 3); // 6°超えで3点ずつ減点（以前より緩やか）
+      } else if (metric.value <= 20) {
+        normalizedScore = Math.max(0, 88 - ((metric.value - 10) * 4)); // 10°超えで4点ずつ減点
       } else {
-        normalizedScore = Math.max(0, 28 - ((metric.value - 25) * 1)); // 25°超えで1点ずつ減点
+        normalizedScore = Math.max(0, 48 - ((metric.value - 20) * 2)); // 20°超えで2点ずつ減点
       }
     } else if (metric.label === "腰椎屈曲・伸展角度") {
       // -15°〜+15°の範囲で100点、それを超えると減点
@@ -481,11 +481,11 @@ function calculateSeatedKneeExtMetrics(
     let excessiveStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let excessiveDescription = '座位膝伸展時の腰椎制御';
     
-    // 非常に感度の高い閾値設定で状態判定（代償検出強化）
-    if (excessiveMovement <= 3) {
+    // 座位膝関節伸展テスト用の正常値範囲を拡大（0-6°を正常値に）
+    if (excessiveMovement <= 6) {
       excessiveStatus = 'normal';
       excessiveDescription = '良好な腰椎制御（座位膝伸展）';
-    } else if (excessiveMovement <= 8) {
+    } else if (excessiveMovement <= 10) {
       excessiveStatus = 'caution';
       excessiveDescription = '軽度の過剰運動（座位膝伸展）';
     } else {
@@ -499,7 +499,7 @@ function calculateSeatedKneeExtMetrics(
       unit: "°",
       status: excessiveStatus,
       description: excessiveDescription,
-      normalRange: "0-5°（適切な制御）"
+      normalRange: "0-6°（適切な制御）"
     });
   }
 }
