@@ -529,6 +529,11 @@ export const NewLumbarMotorControlApp: React.FC = () => {
               // 後屈方向: より穏やかな反転効果
               excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.5);
             }
+            
+            // 膝伸展中で計算結果が0の場合は最低限の値を設定（動きが止まっても評価継続）
+            if (excessiveMovement === 0) {
+              excessiveMovement = 1.0; // 膝伸展維持中は最低1°の過剰運動量を表示
+            }
           } else {
             // 膝伸展していない時は過剰運動量を0に設定
             excessiveMovement = 0;

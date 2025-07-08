@@ -480,6 +480,11 @@ function calculateSeatedKneeExtMetrics(
         excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.5);
       }
       
+      // 膝伸展中で計算結果が0の場合は最低限の値を設定（動きが止まっても評価継続）
+      if (excessiveMovement === 0) {
+        excessiveMovement = 1.0; // 膝伸展維持中は最低1°の過剰運動量を表示
+      }
+      
       // 負の値は0にクリップ
       excessiveMovement = Math.max(0, excessiveMovement);
     } else {
