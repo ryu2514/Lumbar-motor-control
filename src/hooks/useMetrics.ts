@@ -460,8 +460,8 @@ function calculateSeatedKneeExtMetrics(
     // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 反転計算）
     // 座位では安静時に大きい値、膝伸展時（代償）に小さい値になるため反転
     // 基準値から現在値を引いて、代償動作時に高い値になるよう調整
-    // 平均的な過剰運動量をさらに小さく調整
-    const baselineAngle = 15; // 安静時の基準角度をさらに上げる
+    // 脊柱が垂直な正常姿勢での算出値をさらに下げる
+    const baselineAngle = 17; // 安静時の基準角度をさらに上げる
     let excessiveMovement = 0;
     
     if (lumbarAngle > 0) {
