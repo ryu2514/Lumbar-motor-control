@@ -332,6 +332,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordedVideoBlob, setRecordedVideoBlob] = useState<Blob | null>(null);
   const [preferredVideoFormat] = useState<'auto' | 'mp4' | 'webm'>('mp4');
+  const [recordingSpeed, setRecordingSpeed] = useState<number>(1.0); // 録画速度 (0.5x, 1x, 2x)
+  const [showSpeedSelector, setShowSpeedSelector] = useState<boolean>(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   
@@ -821,7 +823,8 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       };
       
       const extension = getFileExtension(recordedVideoBlob.type, preferredVideoFormat);
-      const filename = `pose-analysis-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
+      const speedText = recordingSpeed === 1.0 ? '' : `_${recordingSpeed}x`;
+      const filename = `pose-analysis${speedText}-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${extension}`;
       
       console.log('📁 ダウンロードファイル名:', filename);
       
@@ -944,8 +947,10 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       compositeCanvas.width = video.videoWidth || 640;
       compositeCanvas.height = video.videoHeight || 480;
 
-      // MediaRecorderでキャンバスストリームを録画
-      const stream = compositeCanvas.captureStream(30); // 30fps
+      // MediaRecorderでキャンバスストリームを録画（速度調整対応）
+      const baseFPS = 30;
+      const adjustedFPS = Math.round(baseFPS * recordingSpeed); // 速度に応じてFPS調整
+      const stream = compositeCanvas.captureStream(adjustedFPS);
       
       // サポートされているMIMEタイプを確認
       const getPreferredMimeType = () => {
@@ -1297,7 +1302,11 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           ctx.fillText('描画エラー発生', 10, 90);
         }
         
-        requestAnimationFrame(drawFrame);
+        // 速度調整に応じて描画間隔を調整
+        const drawInterval = 1000 / adjustedFPS; // ミリ秒
+        setTimeout(() => {
+          requestAnimationFrame(drawFrame);
+        }, drawInterval);
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -1311,7 +1320,7 @@ export const NewLumbarMotorControlApp: React.FC = () => {
       alert('録画の開始に失敗しました');
       setIsRecording(false);
     }
-  }, [landmarks, result, isVideoLoaded]);
+  }, [landmarks, result, isVideoLoaded, recordingSpeed]);
 
   // 解析動画の録画停止
   const stopVideoRecording = useCallback(() => {
@@ -1756,6 +1765,35 @@ export const NewLumbarMotorControlApp: React.FC = () => {
                   </svg>
                   <span>ダウンロード</span>
                 </button>
+              </div>
+              
+              {/* 録画速度選択 */}
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">録画速度設定</span>
+                  <span className="text-xs text-gray-500">Windowsでの再生対応</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[0.5, 1.0, 2.0].map(speed => (
+                    <button
+                      key={speed}
+                      onClick={() => setRecordingSpeed(speed)}
+                      disabled={isRecording}
+                      className={`px-3 py-2 text-sm rounded border transition-colors ${
+                        recordingSpeed === speed
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      } ${isRecording ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {recordingSpeed === 0.5 && '0.5倍速 - スロー再生で詳細分析'}
+                  {recordingSpeed === 1.0 && '1倍速 - 通常再生速度'}
+                  {recordingSpeed === 2.0 && '2倍速 - 高速再生で概要確認'}
+                </p>
               </div>
 
               {/* 表示オプション */}
