@@ -1974,15 +1974,17 @@ const detectKneeExtensionForGraph = (currentKneeAngle: number): boolean => {
       return false;
     }
     
-    // 膝伸展の検出条件
-    // 1. 現在の膝角度が160°以上（かなり伸展している）
+    // 膝伸展の検出条件（反応を向上）
+    // 1. 現在の膝角度が150°以上（以前より低い閾値）
     // 2. 直近3フレームで角度が増加傾向（伸展方向）
+    // 3. 角度が一定以上の動作をしている
     const recentAngles = kneeAngleHistory.slice(-3);
-    const isExtended = currentKneeAngle >= 160;
+    const isExtended = currentKneeAngle >= 150; // 150°に下げて反応向上
     const isExtending = recentAngles[2] > recentAngles[1] && recentAngles[1] > recentAngles[0];
-    const hasSignificantMovement = Math.abs(recentAngles[2] - recentAngles[0]) > 5; // 5°以上の変化
+    const hasSignificantMovement = Math.abs(recentAngles[2] - recentAngles[0]) > 3; // 3°以上の変化で反応向上
+    const isPartiallyExtended = currentKneeAngle >= 140; // 部分的伸展も許可
     
-    return isExtended || (isExtending && hasSignificantMovement);
+    return isExtended || (isPartiallyExtended && isExtending) || (isExtending && hasSignificantMovement);
   } catch (error) {
     console.warn('膝伸展検出エラー (グラフ用):', error);
     return false;
