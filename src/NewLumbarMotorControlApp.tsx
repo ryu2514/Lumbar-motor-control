@@ -513,14 +513,14 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 12);
         } else if (testType === 'seatedKneeExt') {
           // 座位膝関節伸展: 反転計算（安静時低値、代償時高値）
-          // 脊柱が垂直な正常姿勢での算出値をさらに下げる
-          const baselineAngle = 17; // 安静時の基準角度をさらに上げる
+          // 膝伸展前の安静時数値をさらに下げるため基準角度を調整
+          const baselineAngle = 20; // 安静時の基準角度をさらに上げて膝伸展前の数値を下げる
           if (lumbarAngle > 0) {
-            // 前屈方向: 穏やかな反転効果（屈曲代償を適度に検出）
-            excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.2);
+            // 前屈方向: より穏やかな反転効果で安静時数値を下げる
+            excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.0);
           } else {
-            // 後屈方向: 穏やかな反転効果
-            excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.6);
+            // 後屈方向: より穏やかな反転効果
+            excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.5);
           }
         } else {
           // 立位股関節屈曲: useMetrics.tsと同じ計算式（オフセット8°）
