@@ -489,9 +489,12 @@ export const NewLumbarMotorControlApp: React.FC = () => {
         右腰: !!landmarks[LANDMARKS.RIGHT_HIP]
       });
       
-      // 必要なランドマークが検出されている場合のみ計算
-      if (landmarks[LANDMARKS.LEFT_SHOULDER] && landmarks[LANDMARKS.RIGHT_SHOULDER] &&
-          landmarks[LANDMARKS.LEFT_HIP] && landmarks[LANDMARKS.RIGHT_HIP]) {
+      // 必要なランドマークが検出されている場合のみ計算（座位膝関節伸展では膝も必要）
+      const hasBasicLandmarks = landmarks[LANDMARKS.LEFT_SHOULDER] && landmarks[LANDMARKS.RIGHT_SHOULDER] &&
+          landmarks[LANDMARKS.LEFT_HIP] && landmarks[LANDMARKS.RIGHT_HIP];
+      const hasKneeLandmarks = landmarks[LANDMARKS.LEFT_KNEE] && landmarks[LANDMARKS.RIGHT_KNEE] && landmarks[LANDMARKS.LEFT_ANKLE];
+      
+      if (hasBasicLandmarks && (testType !== 'seatedKneeExt' || hasKneeLandmarks)) {
         
         const shoulderMid = calculateMidpoint(
           landmarks[LANDMARKS.LEFT_SHOULDER],
@@ -512,15 +515,23 @@ export const NewLumbarMotorControlApp: React.FC = () => {
           // ロックバック: useMetrics.tsと同じ計算式を使用（オフセット12°）
           excessiveMovement = Math.max(0, Math.abs(lumbarAngle) - 12);
         } else if (testType === 'seatedKneeExt') {
-          // 座位膝関節伸展: 反転計算（安静時低値、代償時高値）
-          // 膝伸展前の安静時数値をさらに下げるため基準角度を調整
-          const baselineAngle = 20; // 安静時の基準角度をさらに上げて膝伸展前の数値を下げる
-          if (lumbarAngle > 0) {
-            // 前屈方向: より穏やかな反転効果で安静時数値を下げる
-            excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.0);
+          // 座位膝関節伸展: 膝伸展動作検出時のみ腰椎過剰運動量を計算
+          const kneeAngle = calculateKneeAngleForGraph(landmarks);
+          const isKneeExtending = detectKneeExtensionForGraph(kneeAngle);
+          
+          if (isKneeExtending) {
+            // 膝伸展中のみ腰椎過剰運動量を計算
+            const baselineAngle = 20; // 安静時の基準角度
+            if (lumbarAngle > 0) {
+              // 前屈方向: より穏やかな反転効果で安静時数値を下げる
+              excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.0);
+            } else {
+              // 後屈方向: より穏やかな反転効果
+              excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.5);
+            }
           } else {
-            // 後屈方向: より穏やかな反転効果
-            excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.5);
+            // 膝伸展していない時は過剰運動量を0に設定
+            excessiveMovement = 0;
           }
         } else {
           // 立位股関節屈曲: useMetrics.tsと同じ計算式（オフセット8°）
@@ -1894,5 +1905,88 @@ if (typeof window !== 'undefined') {
     }
   });
 }
+
+// =================================================================
+// 6. 膝角度計算関数（座位膝関節伸展テスト用）
+// =================================================================
+
+/**
+ * グラフ記録用の膝角度計算関数
+ */
+const calculateKneeAngleForGraph = (landmarks: any): number => {
+  try {
+    // 左膝の角度を計算（左股関節-左膝-左足首の角度）
+    const leftHip = landmarks[LANDMARKS.LEFT_HIP];
+    const leftKnee = landmarks[LANDMARKS.LEFT_KNEE];
+    const leftAnkle = landmarks[LANDMARKS.LEFT_ANKLE];
+    
+    if (!leftHip || !leftKnee || !leftAnkle) {
+      return 180; // ランドマークが取得できない場合はまっすぐとみなす
+    }
+    
+    // ベクトル計算
+    const thighVector = {
+      x: leftHip.x - leftKnee.x,
+      y: leftHip.y - leftKnee.y,
+      z: leftHip.z - leftKnee.z
+    };
+    
+    const shinVector = {
+      x: leftAnkle.x - leftKnee.x,
+      y: leftAnkle.y - leftKnee.y,
+      z: leftAnkle.z - leftKnee.z
+    };
+    
+    // 内積と大きさの計算
+    const dotProduct = thighVector.x * shinVector.x + thighVector.y * shinVector.y + thighVector.z * shinVector.z;
+    const thighMagnitude = Math.sqrt(thighVector.x ** 2 + thighVector.y ** 2 + thighVector.z ** 2);
+    const shinMagnitude = Math.sqrt(shinVector.x ** 2 + shinVector.y ** 2 + shinVector.z ** 2);
+    
+    // 角度の計算（ラジアンから度に変換）
+    const cosAngle = dotProduct / (thighMagnitude * shinMagnitude);
+    const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
+    
+    return angle;
+  } catch (error) {
+    console.warn('膝角度計算エラー (グラフ用):', error);
+    return 180; // エラー時はまっすぐとみなす
+  }
+};
+
+// 膝角度履歴を保存する変数（グラフ用）
+let kneeAngleHistory: number[] = [];
+
+/**
+ * グラフ記録用の膝伸展検出関数
+ */
+const detectKneeExtensionForGraph = (currentKneeAngle: number): boolean => {
+  try {
+    // 膝角度履歴に追加
+    kneeAngleHistory.push(currentKneeAngle);
+    
+    // 履歴サイズを制限（最大10フレーム）
+    if (kneeAngleHistory.length > 10) {
+      kneeAngleHistory.shift();
+    }
+    
+    // 履歴が少ない場合は膝伸展なしとみなす
+    if (kneeAngleHistory.length < 3) {
+      return false;
+    }
+    
+    // 膝伸展の検出条件
+    // 1. 現在の膝角度が160°以上（かなり伸展している）
+    // 2. 直近3フレームで角度が増加傾向（伸展方向）
+    const recentAngles = kneeAngleHistory.slice(-3);
+    const isExtended = currentKneeAngle >= 160;
+    const isExtending = recentAngles[2] > recentAngles[1] && recentAngles[1] > recentAngles[0];
+    const hasSignificantMovement = Math.abs(recentAngles[2] - recentAngles[0]) > 5; // 5°以上の変化
+    
+    return isExtended || (isExtending && hasSignificantMovement);
+  } catch (error) {
+    console.warn('膝伸展検出エラー (グラフ用):', error);
+    return false;
+  }
+};
 
 export default NewLumbarMotorControlApp;

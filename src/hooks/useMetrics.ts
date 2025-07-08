@@ -398,12 +398,15 @@ function calculateSeatedKneeExtMetrics(
   metrics: Metric[],
   isLandmarkVisible: (index: number, threshold?: number) => boolean,
   _getMidpoint: (index1: number, index2: number) => { x: number; y: number; z: number }, // 未使用パラメータ
-  _movementHistory: any[] // 未使用パラメータをアンダースコア接頭辞で明示
+  movementHistory: any[] // 膝伸展検出のために使用
 ) {
+  // 必要なランドマークが検出されているかチェック（膝関節を含む）
   if (isLandmarkVisible(LANDMARKS.LEFT_HIP) && 
       isLandmarkVisible(LANDMARKS.RIGHT_HIP) &&
       isLandmarkVisible(LANDMARKS.LEFT_SHOULDER) &&
-      isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER)) {
+      isLandmarkVisible(LANDMARKS.RIGHT_SHOULDER) &&
+      isLandmarkVisible(LANDMARKS.LEFT_KNEE) &&
+      isLandmarkVisible(LANDMARKS.RIGHT_KNEE)) {
     
     // 腰椎関連の計算
     const shoulderMidForLumbar = calculateMidpoint(
@@ -415,6 +418,10 @@ function calculateSeatedKneeExtMetrics(
       landmarks[LANDMARKS.LEFT_HIP],
       landmarks[LANDMARKS.RIGHT_HIP]
     );
+    
+    // 膝伸展動作の検出（膝角度変化を監視）
+    const leftKneeAngle = calculateKneeAngle(landmarks);
+    const isKneeExtending = detectKneeExtension(leftKneeAngle, movementHistory);
     
     // 通常の腰椎角度計算（反転計算用）
     const lumbarAngle = calculateFilteredLumbarAngle(shoulderMidForLumbar, hipMidForLumbar);
@@ -458,39 +465,50 @@ function calculateSeatedKneeExtMetrics(
     });
     
     // 2. 腰椎過剰運動量（座位膝関節伸展テスト用 - 反転計算）
-    // 座位では安静時に大きい値、膝伸展時（代償）に小さい値になるため反転
-    // 基準値から現在値を引いて、代償動作時に高い値になるよう調整
-    // 膝伸展前の安静時数値をさらに下げるため基準角度を調整
-    const baselineAngle = 20; // 安静時の基準角度をさらに上げて膝伸展前の数値を下げる
+    // 膝伸展動作が検出された時のみ腰椎過剰運動量を計算
     let excessiveMovement = 0;
     
-    if (lumbarAngle > 0) {
-      // 前屈方向: より穏やかな反転効果で安静時数値を下げる
-      excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.0);
+    if (isKneeExtending) {
+      // 膝伸展中のみ腰椎過剰運動量を計算
+      const baselineAngle = 20; // 安静時の基準角度
+      
+      if (lumbarAngle > 0) {
+        // 前屈方向: より穏やかな反転効果で安静時数値を下げる
+        excessiveMovement = Math.max(0, (baselineAngle - lumbarAngle) * 1.0);
+      } else {
+        // 後屈方向: より穏やかな反転効果
+        excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.5);
+      }
+      
+      // 負の値は0にクリップ
+      excessiveMovement = Math.max(0, excessiveMovement);
     } else {
-      // 後屈方向: より穏やかな反転効果
-      excessiveMovement = Math.max(0, (baselineAngle - Math.abs(lumbarAngle)) * 0.5);
+      // 膝伸展していない時は過剰運動量を0に設定
+      excessiveMovement = 0;
     }
-    
-    // 負の値は0にクリップ
-    excessiveMovement = Math.max(0, excessiveMovement);
     
     // 座位膝関節伸展テスト用の厳しい基準を維持（7°以上で厳格な評価）
     
-    // ステータス判定は角度ベース（厳格な基準を内部計算で維持）
+    // ステータス判定は膝伸展動作と過剰運動量に基づく
     let excessiveStatus: 'normal' | 'caution' | 'abnormal' = 'normal';
     let excessiveDescription = '座位膝伸展時の腰椎制御';
     
-    // 座位膝関節伸展テスト用の正常値範囲を拡大（0-6°を正常値に）
-    if (excessiveMovement <= 6) {
+    if (!isKneeExtending) {
+      // 膝伸展していない時は待機状態
       excessiveStatus = 'normal';
-      excessiveDescription = '良好な腰椎制御（座位膝伸展）';
-    } else if (excessiveMovement <= 10) {
-      excessiveStatus = 'caution';
-      excessiveDescription = '軽度の過剰運動（座位膝伸展）';
+      excessiveDescription = '膝伸展動作を待機中（座位保持）';
     } else {
-      excessiveStatus = 'abnormal';
-      excessiveDescription = '顕著な過剰運動（座位膝伸展）';
+      // 膝伸展中の腰椎過剰運動量評価
+      if (excessiveMovement <= 6) {
+        excessiveStatus = 'normal';
+        excessiveDescription = '良好な腰椎制御（膝伸展中）';
+      } else if (excessiveMovement <= 10) {
+        excessiveStatus = 'caution';
+        excessiveDescription = '軽度の過剰運動（膝伸展中）';
+      } else {
+        excessiveStatus = 'abnormal';
+        excessiveDescription = '顕著な過剰運動（膝伸展中）';
+      }
     }
     
     metrics.push({
@@ -501,5 +519,92 @@ function calculateSeatedKneeExtMetrics(
       description: excessiveDescription,
       normalRange: "0-6°（適切な制御）"
     });
+  }
+}
+
+/**
+ * 膝角度を計算する関数（座位膝関節伸展テスト用）
+ */
+function calculateKneeAngle(landmarks: any[]): number {
+  try {
+    // 左膝の角度を計算（左股関節-左膝-左足首の角度）
+    const leftHip = landmarks[LANDMARKS.LEFT_HIP];
+    const leftKnee = landmarks[LANDMARKS.LEFT_KNEE];
+    const leftAnkle = landmarks[LANDMARKS.LEFT_ANKLE];
+    
+    if (!leftHip || !leftKnee || !leftAnkle) {
+      return 180; // ランドマークが取得できない場合はまっすぐとみなす
+    }
+    
+    // ベクトル計算
+    const thighVector = {
+      x: leftHip.x - leftKnee.x,
+      y: leftHip.y - leftKnee.y,
+      z: leftHip.z - leftKnee.z
+    };
+    
+    const shinVector = {
+      x: leftAnkle.x - leftKnee.x,
+      y: leftAnkle.y - leftKnee.y,
+      z: leftAnkle.z - leftKnee.z
+    };
+    
+    // 内積と大きさの計算
+    const dotProduct = thighVector.x * shinVector.x + thighVector.y * shinVector.y + thighVector.z * shinVector.z;
+    const thighMagnitude = Math.sqrt(thighVector.x ** 2 + thighVector.y ** 2 + thighVector.z ** 2);
+    const shinMagnitude = Math.sqrt(shinVector.x ** 2 + shinVector.y ** 2 + shinVector.z ** 2);
+    
+    // 角度の計算（ラジアンから度に変換）
+    const cosAngle = dotProduct / (thighMagnitude * shinMagnitude);
+    const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle))) * (180 / Math.PI);
+    
+    return angle;
+  } catch (error) {
+    console.warn('膝角度計算エラー:', error);
+    return 180; // エラー時はまっすぐとみなす
+  }
+}
+
+/**
+ * 膝伸展動作を検出する関数
+ */
+function detectKneeExtension(currentKneeAngle: number, movementHistory: any[]): boolean {
+  try {
+    // 履歴が少ない場合は膝伸展なしとみなす
+    if (movementHistory.length < 3) {
+      return false;
+    }
+    
+    // 直近の膝角度履歴を取得（最大10フレーム）
+    const recentHistory = movementHistory.slice(-10);
+    const kneeAngles: number[] = [];
+    
+    // 過去の膝角度を計算
+    for (const historyFrame of recentHistory) {
+      if (historyFrame && Array.isArray(historyFrame)) {
+        const angle = calculateKneeAngle(historyFrame);
+        kneeAngles.push(angle);
+      }
+    }
+    
+    // 現在の角度も追加
+    kneeAngles.push(currentKneeAngle);
+    
+    if (kneeAngles.length < 3) {
+      return false;
+    }
+    
+    // 膝伸展の検出条件
+    // 1. 現在の膝角度が160°以上（かなり伸展している）
+    // 2. 直近3フレームで角度が増加傾向（伸展方向）
+    const recentAngles = kneeAngles.slice(-3);
+    const isExtended = currentKneeAngle >= 160;
+    const isExtending = recentAngles[2] > recentAngles[1] && recentAngles[1] > recentAngles[0];
+    const hasSignificantMovement = Math.abs(recentAngles[2] - recentAngles[0]) > 5; // 5°以上の変化
+    
+    return isExtended || (isExtending && hasSignificantMovement);
+  } catch (error) {
+    console.warn('膝伸展検出エラー:', error);
+    return false;
   }
 }
