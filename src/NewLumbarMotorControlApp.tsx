@@ -1955,9 +1955,12 @@ const calculateKneeAngleForGraph = (landmarks: any): number => {
 
 // 膝角度履歴を保存する変数（グラフ用）
 let kneeAngleHistory: number[] = [];
+// グラフ用の膝伸展状態バッファ
+let kneeExtensionStateBufferGraph: boolean[] = [];
+let lastKneeExtensionStateGraph = false;
 
 /**
- * グラフ記録用の膝伸展検出関数
+ * グラフ記録用の膝伸展検出関数（安定性向上）
  */
 const detectKneeExtensionForGraph = (currentKneeAngle: number): boolean => {
   try {
@@ -1984,7 +1987,40 @@ const detectKneeExtensionForGraph = (currentKneeAngle: number): boolean => {
     const hasSignificantMovement = Math.abs(recentAngles[2] - recentAngles[0]) > 3; // 3°以上の変化で反応向上
     const isPartiallyExtended = currentKneeAngle >= 140; // 部分的伸展も許可
     
-    return isExtended || (isPartiallyExtended && isExtending) || (isExtending && hasSignificantMovement);
+    // 現在の判定結果
+    const currentDetection = isExtended || (isPartiallyExtended && isExtending) || (isExtending && hasSignificantMovement);
+    
+    // 状態バッファに追加
+    kneeExtensionStateBufferGraph.push(currentDetection);
+    
+    // バッファサイズを制限（最大15フレーム）
+    if (kneeExtensionStateBufferGraph.length > 15) {
+      kneeExtensionStateBufferGraph.shift();
+    }
+    
+    // 安定性を高めるためのフィルタリング
+    if (kneeExtensionStateBufferGraph.length >= 5) {
+      const recentStates = kneeExtensionStateBufferGraph.slice(-5);
+      const trueCount = recentStates.filter(state => state).length;
+      
+      // 直近5フレーム中3回以上検出されたら膝伸展中と判定
+      const shouldBeExtending = trueCount >= 3;
+      
+      // 一度膝伸展が始まったら、明確に停止するまで継続
+      if (shouldBeExtending) {
+        lastKneeExtensionStateGraph = true;
+      } else if (lastKneeExtensionStateGraph) {
+        // 現在伸展中の場合、角度が大幅に下がったら停止
+        const averageRecentAngle = recentAngles.reduce((a, b) => a + b, 0) / recentAngles.length;
+        if (averageRecentAngle < 130) { // 130°以下になったら停止
+          lastKneeExtensionStateGraph = false;
+        }
+      }
+      
+      return lastKneeExtensionStateGraph;
+    }
+    
+    return currentDetection;
   } catch (error) {
     console.warn('膝伸展検出エラー (グラフ用):', error);
     return false;

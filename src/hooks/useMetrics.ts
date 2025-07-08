@@ -565,8 +565,12 @@ function calculateKneeAngle(landmarks: any[]): number {
   }
 }
 
+// 膝伸展状態のバッファリング用変数
+let kneeExtensionStateBuffer: boolean[] = [];
+let lastKneeExtensionState = false;
+
 /**
- * 膝伸展動作を検出する関数
+ * 膝伸展動作を検出する関数（安定性向上）
  */
 function detectKneeExtension(currentKneeAngle: number, movementHistory: any[]): boolean {
   try {
@@ -604,7 +608,40 @@ function detectKneeExtension(currentKneeAngle: number, movementHistory: any[]): 
     const hasSignificantMovement = Math.abs(recentAngles[2] - recentAngles[0]) > 3; // 3°以上の変化で反応向上
     const isPartiallyExtended = currentKneeAngle >= 140; // 部分的伸展も許可
     
-    return isExtended || (isPartiallyExtended && isExtending) || (isExtending && hasSignificantMovement);
+    // 現在の判定結果
+    const currentDetection = isExtended || (isPartiallyExtended && isExtending) || (isExtending && hasSignificantMovement);
+    
+    // 状態バッファに追加
+    kneeExtensionStateBuffer.push(currentDetection);
+    
+    // バッファサイズを制限（最大15フレーム）
+    if (kneeExtensionStateBuffer.length > 15) {
+      kneeExtensionStateBuffer.shift();
+    }
+    
+    // 安定性を高めるためのフィルタリング
+    if (kneeExtensionStateBuffer.length >= 5) {
+      const recentStates = kneeExtensionStateBuffer.slice(-5);
+      const trueCount = recentStates.filter(state => state).length;
+      
+      // 直近5フレーム中3回以上検出されたら膝伸展中と判定
+      const shouldBeExtending = trueCount >= 3;
+      
+      // 一度膝伸展が始まったら、明確に停止するまで継続
+      if (shouldBeExtending) {
+        lastKneeExtensionState = true;
+      } else if (lastKneeExtensionState) {
+        // 現在伸展中の場合、角度が大幅に下がったら停止
+        const averageRecentAngle = recentAngles.reduce((a, b) => a + b, 0) / recentAngles.length;
+        if (averageRecentAngle < 130) { // 130°以下になったら停止
+          lastKneeExtensionState = false;
+        }
+      }
+      
+      return lastKneeExtensionState;
+    }
+    
+    return currentDetection;
   } catch (error) {
     console.warn('膝伸展検出エラー:', error);
     return false;
